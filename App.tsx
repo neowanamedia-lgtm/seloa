@@ -1,12 +1,12 @@
 import React from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
-import MistLakePreviewScreen from './src/preview/MistLakePreviewScreen';
+import { PassageScreen } from './src/screens/PassageScreen';
 
 export default function App() {
   return (
     <View style={styles.root}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <MistLakePreviewScreen />
+      <PassageScreen />
     </View>
   );
 }
