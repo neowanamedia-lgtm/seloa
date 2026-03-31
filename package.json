@@ -1,7 +1,9 @@
 {
   "name": "seloa-app",
-  "main": "expo-router/entry",
   "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "private": true,
+
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -10,6 +12,7 @@
     "web": "expo start --web",
     "lint": "expo lint"
   },
+
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/bottom-tabs": "^7.4.0",
@@ -37,11 +40,11 @@
     "react-native-screens": "~4.16.0",
     "react-native-web": "~0.21.0"
   },
+
   "devDependencies": {
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0"
-  },
-  "private": true
+  }
 }
