@@ -1,7 +1,13 @@
-import React, { PropsWithChildren, useMemo, useState } from 'react';
-import { ImageBackground, StyleSheet, View } from 'react-native';
+import React, { PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, ImageBackground, StyleSheet, View } from 'react-native';
 
 import { getRandomBackground, BackgroundConfig } from '../constants/backgrounds';
+
+type AdaptiveBackgroundProps = PropsWithChildren<{
+  onReady?: () => void;
+}>;
+
+const INITIAL_FADE_DURATION = 900;
 
 const styles = StyleSheet.create({
   container: {
@@ -19,13 +25,30 @@ const styles = StyleSheet.create({
   },
 });
 
-export const AdaptiveBackground: React.FC<PropsWithChildren> = ({ children }) => {
+export const AdaptiveBackground: React.FC<AdaptiveBackgroundProps> = ({ children, onReady }) => {
   const [selectedBackground] = useState<BackgroundConfig>(() => getRandomBackground());
   const source = useMemo(() => selectedBackground.portrait, [selectedBackground]);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const hasSignaledRef = useRef(false);
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: INITIAL_FADE_DURATION,
+      useNativeDriver: true,
+    }).start(() => {
+      if (!hasSignaledRef.current) {
+        hasSignaledRef.current = true;
+        onReady?.();
+      }
+    });
+  }, [opacity, onReady]);
 
   return (
     <View style={styles.container}>
-      <ImageBackground source={source} style={styles.background} resizeMode="cover" />
+      <Animated.View style={[styles.background, { opacity }]}> 
+        <ImageBackground source={source} style={styles.background} resizeMode="cover" />
+      </Animated.View>
       <View style={styles.overlay} />
       <View style={styles.content}>{children}</View>
     </View>

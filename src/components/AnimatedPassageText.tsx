@@ -24,12 +24,14 @@ export type AnimatedPassageTextProps = {
   line: string;
   style?: TextStyle;
   containerStyle?: ViewStyle;
+  isReady?: boolean;
 };
 
 export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
   line,
   style,
   containerStyle,
+  isReady = true,
 }) => {
   const words = useMemo(() => line.split(/\s+/).filter(Boolean), [line]);
   const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [line]);
@@ -39,10 +41,10 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
   useEffect(() => {
     hasAnimatedRef.current = false;
     animatedValues.forEach((value) => value.setValue(0));
-  }, [line, animatedValues]);
+  }, [line, animatedValues, isReady]);
 
   useEffect(() => {
-    if (hasAnimatedRef.current) {
+    if (!isReady || hasAnimatedRef.current) {
       return;
     }
 
@@ -64,7 +66,7 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
     return () => {
       animationRef.current?.stop();
     };
-  }, [animatedValues]);
+  }, [animatedValues, isReady]);
 
   return (
     <View style={[styles.lineContainer, containerStyle]}>
