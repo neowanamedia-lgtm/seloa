@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AdaptiveBackground } from '../components/AdaptiveBackground';
 import { AnimatedPassageText } from '../components/AnimatedPassageText';
 import { usePassage } from '../hooks/usePassage';
+import { useOrientation } from '../hooks/useOrientation';
 
 const styles = StyleSheet.create({
   container: {
@@ -14,29 +15,37 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     width: '100%',
-    maxWidth: 360,
-    alignItems: 'center',
-    transform: [{ translateY: -72 }],
+    maxWidth: 420,
+    alignSelf: 'center',
+    transform: [{ translateY: -96 }],
+    paddingHorizontal: 24,
   },
-  lineSpacing: {
-    marginBottom: 14,
+  paragraphContainer: {
+    width: '100%',
+  },
+  paragraph: {
+    fontSize: 20,
+    lineHeight: 32,
+    color: '#ffffff',
+    textAlign: 'left',
   },
 });
 
 export const PassageScreen: React.FC = () => {
   const { lines } = usePassage();
+  const orientation = useOrientation();
+  const passageText = useMemo(() => lines.join(' '), [lines]);
 
   return (
     <AdaptiveBackground>
       <View style={styles.container}>
         <View style={styles.textBlock}>
-          {lines.map((line, index) => (
-            <AnimatedPassageText
-              key={`passage-line-${index}`}
-              line={line}
-              containerStyle={styles.lineSpacing}
-            />
-          ))}
+          <AnimatedPassageText
+            key={`passage-${orientation}`}
+            line={passageText}
+            containerStyle={styles.paragraphContainer}
+            style={styles.paragraph}
+          />
         </View>
       </View>
     </AdaptiveBackground>
