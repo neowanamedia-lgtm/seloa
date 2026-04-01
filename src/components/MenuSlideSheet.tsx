@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   ImageBackground,
   Pressable,
   ScrollView,
@@ -10,8 +9,6 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
-const { height } = Dimensions.get('window');
 
 export type MenuSlideSheetProps = {
   visible: boolean;
@@ -22,8 +19,13 @@ const SLIDE_DURATION = 420;
 const FADE_DURATION = 320;
 
 const LANGUAGE_ORDER = ['ko', 'en', 'ja', 'zh', 'es', 'ar'] as const;
-type LanguageValue = typeof LANGUAGE_ORDER[number];
+const EMOTION_ORDER = ['none', 'joy', 'hope', 'anxiety', 'depression', 'sadness'] as const;
+const PHILOSOPHY_ORDER = ['all', 'eastern', 'western'] as const;
+const RELIGION_ORDER = ['none', 'christianity', 'buddhism', 'islam'] as const;
+const FONT_ORDER = ['default', 'soft', 'handwriting'] as const;
+const BACKGROUND_ORDER = ['auto', 'fixed'] as const;
 
+type LanguageValue = typeof LANGUAGE_ORDER[number];
 type EmotionValue = 'joy' | 'hope' | 'anxiety' | 'depression' | 'sadness' | 'none';
 type PhilosophyValue = 'eastern' | 'western';
 type ReligionValue = 'christianity' | 'buddhism' | 'islam';
@@ -41,7 +43,19 @@ const LOCALE_COPY: Record<LanguageValue, { tagline: string }> = {
   ar: { tagline: 'مساحة للقاء المقطع المناسب لك الآن' },
 };
 
-const SECTION_LABELS: Record<LanguageValue, Record<'emotion' | 'philosophy' | 'religion' | 'language' | 'font' | 'background', string>> = {
+const CTA_LABELS: Record<LanguageValue, string> = {
+  ko: '문장 보기',
+  en: 'View Passage',
+  ja: '文章を見る',
+  zh: '文章查看',
+  es: 'Ver texto',
+  ar: 'عرض النص',
+};
+
+const SECTION_LABELS: Record<
+  LanguageValue,
+  Record<'emotion' | 'philosophy' | 'religion' | 'language' | 'font' | 'background', string>
+> = {
   ko: { emotion: '감정', philosophy: '철학', religion: '종교', language: '언어', font: '서체', background: '배경' },
   en: { emotion: 'Emotion', philosophy: 'Philosophy', religion: 'Religion', language: 'Language', font: 'Font', background: 'Background' },
   ja: { emotion: '感情', philosophy: '哲学', religion: '宗教', language: '言語', font: 'フォント', background: '背景' },
@@ -126,13 +140,19 @@ const MENU_BACKGROUNDS = [
 ];
 
 export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose }) => {
+  const { width, height } = useWindowDimensions();
+
   const translateY = useRef(new Animated.Value(height)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+
   const [renderSheet, setRenderSheet] = useState(visible);
-  const { width, height: windowHeight } = useWindowDimensions();
-  const isLandscape = width > windowHeight;
-  const [backgroundIndex, setBackgroundIndex] = useState(() => Math.floor(Math.random() * MENU_BACKGROUNDS.length));
+  const [backgroundIndex, setBackgroundIndex] = useState(() =>
+    Math.floor(Math.random() * MENU_BACKGROUNDS.length),
+  );
   const previousVisibleRef = useRef(visible);
+
+  const isLandscape = width > height;
+
   const [language, setLanguage] = useState<LanguageValue>('ko');
   const [emotion, setEmotion] = useState<EmotionValue>('joy');
   const [philosophy, setPhilosophy] = useState<PhilosophyValue[]>([]);
@@ -143,12 +163,15 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
   useEffect(() => {
     if (visible) {
       setRenderSheet(true);
+
       if (!previousVisibleRef.current) {
         setBackgroundIndex(Math.floor(Math.random() * MENU_BACKGROUNDS.length));
       }
+
+      translateY.setValue(height);
       Animated.parallel([
         Animated.timing(backdropOpacity, {
-          toValue: 0.4,
+          toValue: 0.42,
           duration: FADE_DURATION,
           useNativeDriver: true,
         }),
@@ -170,19 +193,26 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
           duration: SLIDE_DURATION,
           useNativeDriver: true,
         }),
-      ]).start(() => setRenderSheet(false));
+      ]).start(({ finished }) => {
+        if (finished) {
+          setRenderSheet(false);
+        }
+      });
     }
+
     previousVisibleRef.current = visible;
-  }, [visible, backdropOpacity, translateY]);
+  }, [visible, height, backdropOpacity, translateY]);
 
   const localeCopy = useMemo(() => LOCALE_COPY[language], [language]);
   const sectionLabel = useMemo(() => SECTION_LABELS[language], [language]);
+  const ctaLabel = useMemo(() => CTA_LABELS[language], [language]);
 
   const togglePhilosophy = (value: PhilosophyValue | 'all') => {
     if (value === 'all') {
       setPhilosophy([]);
       return;
     }
+
     setPhilosophy((prev) =>
       prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
     );
@@ -193,6 +223,7 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
       setReligion([]);
       return;
     }
+
     setReligion((prev) =>
       prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
     );
@@ -202,28 +233,28 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
     return null;
   }
 
-  const contentTransform = isLandscape ? [{ translateX: -90 }] : [{ translateY: -80 }];
+  const contentTransform = isLandscape ? [{ translateX: -56 }] : [{ translateY: -32 }];
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Pressable style={styles.backdropHitbox} onPress={onClose}>
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
       </Pressable>
-      <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}> 
+
+      <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
         <ImageBackground
           source={MENU_BACKGROUNDS[backgroundIndex]}
           style={styles.background}
           resizeMode="cover"
-          blurRadius={23}
+          blurRadius={18}
         >
-          <View style={styles.brightOverlay} />
           <View style={[styles.menuWrapper, { transform: contentTransform }]}>
             <View style={styles.panel}>
               <Text style={styles.logo}>Seloa</Text>
               <Text style={styles.tagline}>{localeCopy.tagline}</Text>
 
               <MenuSection label={sectionLabel.emotion}>
-                {(Object.keys(EMOTION_LABELS) as EmotionValue[]).map((value) => (
+                {EMOTION_ORDER.map((value) => (
                   <Chip
                     key={value}
                     label={EMOTION_LABELS[value][language]}
@@ -234,22 +265,22 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
               </MenuSection>
 
               <MenuSection label={sectionLabel.philosophy}>
-                {(['all', 'eastern', 'western'] as Array<'all' | PhilosophyValue>).map((value) => (
+                {PHILOSOPHY_ORDER.map((value) => (
                   <Chip
                     key={value}
                     label={PHILOSOPHY_LABELS[value][language]}
-                    selected={value === 'all' ? philosophy.length === 0 : philosophy.includes(value as PhilosophyValue)}
+                    selected={value === 'all' ? philosophy.length === 0 : philosophy.includes(value)}
                     onPress={() => togglePhilosophy(value)}
                   />
                 ))}
               </MenuSection>
 
               <MenuSection label={sectionLabel.religion}>
-                {(['none', 'christianity', 'buddhism', 'islam'] as Array<'none' | ReligionValue>).map((value) => (
+                {RELIGION_ORDER.map((value) => (
                   <Chip
                     key={value}
                     label={RELIGION_LABELS[value][language]}
-                    selected={value === 'none' ? religion.length === 0 : religion.includes(value as ReligionValue)}
+                    selected={value === 'none' ? religion.length === 0 : religion.includes(value)}
                     onPress={() => toggleReligion(value)}
                   />
                 ))}
@@ -267,7 +298,7 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
               </MenuSection>
 
               <MenuSection label={sectionLabel.font}>
-                {(['default', 'soft', 'handwriting'] as FontValue[]).map((value) => (
+                {FONT_ORDER.map((value) => (
                   <Chip
                     key={value}
                     label={FONT_LABELS[value][language]}
@@ -278,7 +309,7 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
               </MenuSection>
 
               <MenuSection label={sectionLabel.background}>
-                {(['auto', 'fixed'] as BackgroundValue[]).map((value) => (
+                {BACKGROUND_ORDER.map((value) => (
                   <Chip
                     key={value}
                     label={BACKGROUND_LABELS[value][language]}
@@ -287,6 +318,12 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
                   />
                 ))}
               </MenuSection>
+
+              <View style={styles.footer}>
+                <Pressable style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
+                  <Text style={styles.ctaLabel}>{ctaLabel}</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </ImageBackground>
@@ -295,100 +332,7 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
   );
 };
 
-const styles = StyleSheet.create({
-  backdropHitbox: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(6, 10, 16, 0.45)',
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    top: 0,
-    overflow: 'hidden',
-  },
-  background: {
-    flex: 1,
-  },
-  brightOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0)',
-  },
-  menuWrapper: {
-    width: '100%',
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1,
-  },
-  panel: {
-    width: '100%',
-    maxWidth: 520,
-    gap: 14,
-  },
-  logo: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#F7F8FF',
-    letterSpacing: 0.5,
-  },
-  tagline: {
-    fontSize: 13,
-    color: 'rgba(247, 248, 255, 0.88)',
-    lineHeight: 18,
-    marginBottom: 6,
-  },
-  sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#9DD0FF',
-    minWidth: 68,
-    flexShrink: 0,
-  },
-  sectionScroll: {
-    flex: 1,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    columnGap: 6,
-  },
-  chip: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.35)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'transparent',
-  },
-  chipSelected: {
-    backgroundColor: 'rgba(100,160,255,0.15)',
-    borderColor: 'rgba(255,255,255,0.55)',
-  },
-  chipPressed: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  chipText: {
-    fontSize: 12,
-    color: '#F4F6FB',
-    letterSpacing: 0.2,
-  },
-});
-
-type MenuSectionProps = {
-  label: string;
-  children: React.ReactNode;
-};
-
-const MenuSection: React.FC<MenuSectionProps> = ({ label, children }) => (
+const MenuSection: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <View style={styles.sectionRow}>
     <Text style={styles.sectionLabel} numberOfLines={1}>
       {label}
@@ -404,13 +348,11 @@ const MenuSection: React.FC<MenuSectionProps> = ({ label, children }) => (
   </View>
 );
 
-type ChipProps = {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-};
-
-const Chip: React.FC<ChipProps> = ({ label, selected, onPress }) => (
+const Chip: React.FC<{ label: string; selected: boolean; onPress: () => void }> = ({
+  label,
+  selected,
+  onPress,
+}) => (
   <Pressable
     onPress={onPress}
     style={({ pressed }) => [
@@ -419,6 +361,115 @@ const Chip: React.FC<ChipProps> = ({ label, selected, onPress }) => (
       pressed && !selected && styles.chipPressed,
     ]}
   >
-    <Text style={styles.chipText}>{label}</Text>
+    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
   </Pressable>
 );
+
+const styles = StyleSheet.create({
+  backdropHitbox: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(6, 10, 16, 0.45)',
+  },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  background: {
+    flex: 1,
+  },
+  menuWrapper: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  panel: {
+    width: '100%',
+    maxWidth: 560,
+    gap: 8,
+  },
+  logo: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#F7F8FF',
+    letterSpacing: 0.5,
+  },
+  tagline: {
+    fontSize: 14,
+    color: 'rgba(247, 248, 255, 0.92)',
+    lineHeight: 19,
+    marginBottom: 4,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#9DD0FF',
+    minWidth: 42,
+    marginRight: 0,
+    flexShrink: 0,
+  },
+  sectionScroll: {
+    flex: 1,
+    marginLeft: 0,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    columnGap: 4,
+    paddingVertical: 0,
+  },
+  chip: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'transparent',
+  },
+  chipSelected: {
+    backgroundColor: 'rgba(100,160,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.62)',
+  },
+  chipPressed: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  chipText: {
+    fontSize: 13,
+    color: '#F4F6FB',
+    letterSpacing: 0.2,
+  },
+  chipTextSelected: {
+    color: '#FFFFFF',
+  },
+  footer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  cta: {
+    borderRadius: 999,
+    backgroundColor: '#57A8FF',
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+  },
+  ctaPressed: {
+    backgroundColor: '#3F96F5',
+  },
+  ctaLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+});

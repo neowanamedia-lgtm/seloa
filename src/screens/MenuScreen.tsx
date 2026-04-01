@@ -3,6 +3,8 @@ import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LANGUAGE_ORDER = ['ko', 'en', 'ja', 'zh', 'es', 'ar'] as const;
+const EMOTION_ORDER = ['none', 'joy', 'hope', 'anxiety', 'depression', 'sadness'] as const;
+
 type LanguageValue = typeof LANGUAGE_ORDER[number];
 
 type EmotionValue = 'joy' | 'hope' | 'anxiety' | 'depression' | 'sadness' | 'none';
@@ -13,7 +15,6 @@ type BackgroundValue = 'auto' | 'fixed';
 
 type LocaleCopy = {
   tagline: string;
-  buttonLabel: string;
 };
 
 type LabelMap<T extends string> = Record<T, Record<LanguageValue, string>>;
@@ -21,27 +22,21 @@ type LabelMap<T extends string> = Record<T, Record<LanguageValue, string>>;
 const LOCALE_COPY: Record<LanguageValue, LocaleCopy> = {
   ko: {
     tagline: '지금, 나에게 맞는 문장을 만나는 공간',
-    buttonLabel: '문장을 만나다',
   },
   en: {
     tagline: 'A space where you meet the right passage for you now',
-    buttonLabel: 'Meet the passage',
   },
   ja: {
     tagline: 'いまの自分にふさわしい文章と出会う場所',
-    buttonLabel: '文章と出会う',
   },
   zh: {
     tagline: '此刻遇见适合自己的句子',
-    buttonLabel: '遇见一句话',
   },
   es: {
     tagline: 'Un espacio para encontrar la frase adecuada para ti ahora',
-    buttonLabel: 'Encontrar la frase',
   },
   ar: {
     tagline: 'مساحة للقاء المقطع المناسب لك الآن',
-    buttonLabel: 'لقاء المقطع',
   },
 };
 
@@ -193,7 +188,7 @@ const MenuScreen: React.FC = () => {
               </View>
 
               <SectionRow label={sectionLabel.emotion}>
-                {(Object.keys(EMOTION_LABELS) as EmotionValue[]).map((value) => (
+                {EMOTION_ORDER.map((value) => (
                   <Chip
                     key={value}
                     label={EMOTION_LABELS[value][language]}
@@ -236,17 +231,6 @@ const MenuScreen: React.FC = () => {
                 ))}
               </SectionRow>
 
-              <SectionRow label={sectionLabel.background}>
-                {(['auto', 'fixed'] as BackgroundValue[]).map((value) => (
-                  <Chip
-                    key={value}
-                    label={BACKGROUND_LABELS[value][language]}
-                    selected={backgroundMode === value}
-                    onPress={() => setBackgroundMode(value)}
-                  />
-                ))}
-              </SectionRow>
-
               <SectionRow label={sectionLabel.font}>
                 {(['default', 'soft', 'handwriting'] as FontValue[]).map((value) => (
                   <Chip
@@ -257,9 +241,20 @@ const MenuScreen: React.FC = () => {
                   />
                 ))}
               </SectionRow>
+
+              <SectionRow label={sectionLabel.background}>
+                {(['auto', 'fixed'] as BackgroundValue[]).map((value) => (
+                  <Chip
+                    key={value}
+                    label={BACKGROUND_LABELS[value][language]}
+                    selected={backgroundMode === value}
+                    onPress={() => setBackgroundMode(value)}
+                  />
+                ))}
+              </SectionRow>
             </ScrollView>
 
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
               <Pressable style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
                 <Text style={styles.ctaLabel}>{ctaLabel}</Text>
               </Pressable>
@@ -287,7 +282,11 @@ const SectionRow: React.FC<{ label: string; children: React.ReactNode }> = ({ la
   </View>
 );
 
-const Chip: React.FC<{ label: string; selected: boolean; onPress: () => void }> = ({ label, selected, onPress }) => (
+const Chip: React.FC<{ label: string; selected: boolean; onPress: () => void }> = ({
+  label,
+  selected,
+  onPress,
+}) => (
   <Pressable
     style={({ pressed }) => [
       styles.chip,
@@ -314,40 +313,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
   header: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
   logo: {
-    fontSize: 28,
+    fontSize: 29,
     fontWeight: '600',
     fontFamily: 'Playfair Display',
     color: '#1d2b4a',
   },
   tagline: {
     marginTop: 4,
-    fontSize: 22,
+    fontSize: 24,
     color: '#1d2b4a',
-    lineHeight: 32,
+    lineHeight: 33,
   },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
-    columnGap: 2,
+    columnGap: 0,
   },
   sectionLabel: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: LABEL_COLOR,
-    marginRight: 4,
-    minWidth: 38,
+    marginRight: 1,
+    minWidth: 32,
     flexShrink: 0,
   },
   chipScroll: {
     flex: 1,
+    marginLeft: 0,
   },
   chipRow: {
     flexGrow: 1,
@@ -370,29 +370,29 @@ const styles = StyleSheet.create({
     backgroundColor: LIGHT_BG,
   },
   chipText: {
-    fontSize: 17,
+    fontSize: 19,
     color: '#1a1a1a',
   },
   chipTextSelected: {
     color: '#ffffff',
   },
   footer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: 14,
+    paddingTop: 18,
   },
   cta: {
     borderRadius: 999,
     backgroundColor: PRIMARY,
-    paddingHorizontal: 44,
-    paddingVertical: 16,
-    alignSelf: 'flex-start',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    alignSelf: 'center',
   },
   ctaPressed: {
     backgroundColor: PRIMARY_PRESSED,
   },
   ctaLabel: {
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
   },
 });
