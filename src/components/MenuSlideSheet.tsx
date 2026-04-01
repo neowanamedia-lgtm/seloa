@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   ImageBackground,
@@ -13,6 +13,7 @@ import {
 export type MenuSlideSheetProps = {
   visible: boolean;
   onClose: () => void;
+  onApply: (options: MenuSelections) => void;
 };
 
 const SLIDE_DURATION = 420;
@@ -31,6 +32,15 @@ type PhilosophyValue = 'eastern' | 'western';
 type ReligionValue = 'christianity' | 'buddhism' | 'islam';
 type FontValue = 'default' | 'soft' | 'handwriting';
 type BackgroundValue = 'auto' | 'fixed';
+
+export type MenuSelections = {
+  language: LanguageValue;
+  emotion: EmotionValue;
+  philosophy: PhilosophyValue[];
+  religion: ReligionValue[];
+  font: FontValue;
+  backgroundMode: BackgroundValue;
+};
 
 type LabelMap<T extends string> = Record<T, Record<LanguageValue, string>>;
 
@@ -139,7 +149,7 @@ const MENU_BACKGROUNDS = [
   require('../../assets/backgrounds/portrait/bg30.jpg'),
 ];
 
-export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose }) => {
+export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose, onApply }) => {
   const { width, height } = useWindowDimensions();
 
   const translateY = useRef(new Animated.Value(height)).current;
@@ -154,7 +164,7 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
   const isLandscape = width > height;
 
   const [language, setLanguage] = useState<LanguageValue>('ko');
-  const [emotion, setEmotion] = useState<EmotionValue>('joy');
+  const [emotion, setEmotion] = useState<EmotionValue>('none');
   const [philosophy, setPhilosophy] = useState<PhilosophyValue[]>([]);
   const [religion, setReligion] = useState<ReligionValue[]>([]);
   const [font, setFont] = useState<FontValue>('default');
@@ -206,6 +216,18 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
   const localeCopy = useMemo(() => LOCALE_COPY[language], [language]);
   const sectionLabel = useMemo(() => SECTION_LABELS[language], [language]);
   const ctaLabel = useMemo(() => CTA_LABELS[language], [language]);
+
+  const handleApply = useCallback(() => {
+    onApply({
+      language,
+      emotion,
+      philosophy: [...philosophy],
+      religion: [...religion],
+      font,
+      backgroundMode,
+    });
+    onClose();
+  }, [onApply, onClose, language, emotion, philosophy, religion, font, backgroundMode]);
 
   const togglePhilosophy = (value: PhilosophyValue | 'all') => {
     if (value === 'all') {
@@ -320,7 +342,10 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
               </MenuSection>
 
               <View style={styles.footer}>
-                <Pressable style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
+                <Pressable
+                  style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+                  onPress={handleApply}
+                >
                   <Text style={styles.ctaLabel}>{ctaLabel}</Text>
                 </Pressable>
               </View>
@@ -394,19 +419,19 @@ const styles = StyleSheet.create({
   panel: {
     width: '100%',
     maxWidth: 560,
-    gap: 8,
+    gap: 10,
   },
   logo: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '600',
     color: '#F7F8FF',
     letterSpacing: 0.5,
   },
   tagline: {
-    fontSize: 14,
+    fontSize: 16,
     color: 'rgba(247, 248, 255, 0.92)',
-    lineHeight: 19,
-    marginBottom: 4,
+    lineHeight: 22,
+    marginBottom: 6,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -414,7 +439,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#9DD0FF',
     minWidth: 42,
@@ -446,7 +471,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#F4F6FB',
     letterSpacing: 0.2,
   },
@@ -454,17 +479,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   footer: {
-    marginTop: 12,
+    marginTop: 16,
     alignItems: 'center',
   },
   cta: {
     borderRadius: 999,
-    backgroundColor: '#57A8FF',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: 22,
-    paddingVertical: 11,
+    paddingVertical: 10,
   },
   ctaPressed: {
-    backgroundColor: '#3F96F5',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.65)',
   },
   ctaLabel: {
     fontSize: 15,

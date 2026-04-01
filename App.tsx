@@ -15,7 +15,7 @@ export default function App() {
       <View style={styles.root}>
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         {isServiceActive ? (
-          <PassageScreen onExitService={handleExitService} />
+          <PassageScreen onExitService={handleExitService} initialMenuVisible />
         ) : (
           <View style={styles.closedState}>
             <Text style={styles.closedText}>Seloa is resting.</Text>
