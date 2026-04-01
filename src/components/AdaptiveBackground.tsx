@@ -5,6 +5,7 @@ import { getRandomBackground, BackgroundConfig } from '../constants/backgrounds'
 
 type AdaptiveBackgroundProps = PropsWithChildren<{
   onReady?: () => void;
+  overlayColor?: string;
 }>;
 
 const INITIAL_FADE_DURATION = 900;
@@ -25,7 +26,11 @@ const styles = StyleSheet.create({
   },
 });
 
-export const AdaptiveBackground: React.FC<AdaptiveBackgroundProps> = ({ children, onReady }) => {
+export const AdaptiveBackground: React.FC<AdaptiveBackgroundProps> = ({
+  children,
+  onReady,
+  overlayColor,
+}) => {
   const [selectedBackground] = useState<BackgroundConfig>(() => getRandomBackground());
   const source = useMemo(() => selectedBackground.portrait, [selectedBackground]);
   const opacity = useRef(new Animated.Value(0)).current;
@@ -49,7 +54,7 @@ export const AdaptiveBackground: React.FC<AdaptiveBackgroundProps> = ({ children
       <Animated.View style={[styles.background, { opacity }]}> 
         <ImageBackground source={source} style={styles.background} resizeMode="cover" />
       </Animated.View>
-      <View style={styles.overlay} />
+      <View style={[styles.overlay, { backgroundColor: overlayColor ?? 'rgba(0,0,0,0.3)' }]} />
       <View style={styles.content}>{children}</View>
     </View>
   );

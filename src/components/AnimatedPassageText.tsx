@@ -33,18 +33,20 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
   containerStyle,
   isReady = true,
 }) => {
-  const words = useMemo(() => line.split(/\s+/).filter(Boolean), [line]);
-  const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [line]);
+  const safeLine = typeof line === 'string' ? line : '';
+  const normalizedLine = safeLine.trim();
+  const words = useMemo(() => (normalizedLine.length > 0 ? normalizedLine.split(/\s+/) : []), [normalizedLine]);
+  const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [words]);
   const hasAnimatedRef = useRef(false);
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     hasAnimatedRef.current = false;
     animatedValues.forEach((value) => value.setValue(0));
-  }, [line, animatedValues, isReady]);
+  }, [normalizedLine, animatedValues, isReady]);
 
   useEffect(() => {
-    if (!isReady || hasAnimatedRef.current) {
+    if (!isReady || hasAnimatedRef.current || words.length === 0) {
       return;
     }
 
@@ -66,7 +68,15 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
     return () => {
       animationRef.current?.stop();
     };
-  }, [animatedValues, isReady]);
+  }, [animatedValues, isReady, words.length]);
+
+  if (words.length === 0) {
+    return (
+      <View style={[styles.lineContainer, containerStyle]}>
+        <Animated.Text style={[styles.word, style]}>{safeLine}</Animated.Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.lineContainer, containerStyle]}>

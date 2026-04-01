@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  Dimensions,
+  ImageBackground,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 const { height } = Dimensions.get('window');
 
@@ -13,17 +22,57 @@ const FADE_DURATION = 320;
 
 const MENU_ITEMS = ['Emotion', 'Language', 'Philosophy', 'Religion', 'Background', 'Font', 'Close'];
 
+const MENU_BACKGROUNDS = [
+  require('../../assets/backgrounds/portrait/bg01.jpg'),
+  require('../../assets/backgrounds/portrait/bg02.jpg'),
+  require('../../assets/backgrounds/portrait/bg03.jpg'),
+  require('../../assets/backgrounds/portrait/bg04.jpg'),
+  require('../../assets/backgrounds/portrait/bg05.jpg'),
+  require('../../assets/backgrounds/portrait/bg06.jpg'),
+  require('../../assets/backgrounds/portrait/bg07.jpg'),
+  require('../../assets/backgrounds/portrait/bg08.jpg'),
+  require('../../assets/backgrounds/portrait/bg09.jpg'),
+  require('../../assets/backgrounds/portrait/bg10.jpg'),
+  require('../../assets/backgrounds/portrait/bg11.jpg'),
+  require('../../assets/backgrounds/portrait/bg12.jpg'),
+  require('../../assets/backgrounds/portrait/bg13.jpg'),
+  require('../../assets/backgrounds/portrait/bg14.jpg'),
+  require('../../assets/backgrounds/portrait/bg15.jpg'),
+  require('../../assets/backgrounds/portrait/bg16.jpg'),
+  require('../../assets/backgrounds/portrait/bg17.jpg'),
+  require('../../assets/backgrounds/portrait/bg18.jpg'),
+  require('../../assets/backgrounds/portrait/bg19.jpg'),
+  require('../../assets/backgrounds/portrait/bg20.jpg'),
+  require('../../assets/backgrounds/portrait/bg21.jpg'),
+  require('../../assets/backgrounds/portrait/bg22.jpg'),
+  require('../../assets/backgrounds/portrait/bg23.jpg'),
+  require('../../assets/backgrounds/portrait/bg24.jpg'),
+  require('../../assets/backgrounds/portrait/bg25.jpg'),
+  require('../../assets/backgrounds/portrait/bg26.jpg'),
+  require('../../assets/backgrounds/portrait/bg27.jpg'),
+  require('../../assets/backgrounds/portrait/bg28.jpg'),
+  require('../../assets/backgrounds/portrait/bg29.jpg'),
+  require('../../assets/backgrounds/portrait/bg30.jpg'),
+];
+
 export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose }) => {
   const translateY = useRef(new Animated.Value(height)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const [renderSheet, setRenderSheet] = useState(visible);
+  const { width, height: windowHeight } = useWindowDimensions();
+  const isLandscape = width > windowHeight;
+  const [backgroundIndex, setBackgroundIndex] = useState(() => Math.floor(Math.random() * MENU_BACKGROUNDS.length));
+  const previousVisibleRef = useRef(visible);
 
   useEffect(() => {
     if (visible) {
       setRenderSheet(true);
+      if (!previousVisibleRef.current) {
+        setBackgroundIndex(Math.floor(Math.random() * MENU_BACKGROUNDS.length));
+      }
       Animated.parallel([
         Animated.timing(backdropOpacity, {
-          toValue: 0.55,
+          toValue: 0.4,
           duration: FADE_DURATION,
           useNativeDriver: true,
         }),
@@ -47,6 +96,7 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
         }),
       ]).start(() => setRenderSheet(false));
     }
+    previousVisibleRef.current = visible;
   }, [visible, backdropOpacity, translateY]);
 
   const handleItemPress = (item: string) => {
@@ -69,14 +119,26 @@ export const MenuSlideSheet: React.FC<MenuSlideSheetProps> = ({ visible, onClose
     return null;
   }
 
+  const alignmentTransform = isLandscape ? [{ translateX: -60 }] : [{ translateY: -60 }];
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Pressable style={styles.backdropHitbox} onPress={onClose}>
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
       </Pressable>
       <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}> 
-        <View style={styles.handle} />
-        <View style={styles.menuContainer}>{menuNodes}</View>
+        <ImageBackground
+          source={MENU_BACKGROUNDS[backgroundIndex]}
+          style={styles.background}
+          resizeMode="cover"
+          blurRadius={23}
+        >
+          <View style={styles.brightOverlay} />
+          <View style={[styles.menuWrapper, { transform: alignmentTransform }]}>
+            <View style={styles.handle} />
+            <View style={styles.menuContainer}>{menuNodes}</View>
+          </View>
+        </ImageBackground>
       </Animated.View>
     </View>
   );
@@ -88,7 +150,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(6, 10, 16, 0.7)',
+    backgroundColor: 'rgba(6, 10, 16, 0.45)',
   },
   sheet: {
     position: 'absolute',
@@ -96,9 +158,22 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     top: 0,
-    backgroundColor: 'rgba(16, 22, 30, 0.92)',
+    overflow: 'hidden',
+  },
+  background: {
+    flex: 1,
+  },
+  brightOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0)',
+  },
+  menuWrapper: {
+    width: '100%',
     paddingTop: 28,
     paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
   },
   handle: {
     width: 48,
@@ -122,3 +197,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 });
+
+

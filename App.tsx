@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PassageScreen } from './src/screens/PassageScreen';
 
 export default function App() {
@@ -10,16 +11,18 @@ export default function App() {
   }, []);
 
   return (
-    <View style={styles.root}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      {isServiceActive ? (
-        <PassageScreen onExitService={handleExitService} />
-      ) : (
-        <View style={styles.closedState}>
-          <Text style={styles.closedText}>Seloa is resting.</Text>
-        </View>
-      )}
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.root}>
+        <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+        {isServiceActive ? (
+          <PassageScreen onExitService={handleExitService} />
+        ) : (
+          <View style={styles.closedState}>
+            <Text style={styles.closedText}>Seloa is resting.</Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaProvider>
   );
 }
 

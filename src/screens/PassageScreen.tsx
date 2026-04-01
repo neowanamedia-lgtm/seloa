@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AdaptiveBackground } from '../components/AdaptiveBackground';
@@ -9,6 +9,8 @@ import { usePassage } from '../hooks/usePassage';
 import { useOrientation } from '../hooks/useOrientation';
 
 const TEXT_DELAY_MS = 1400;
+const TEXT_FALLBACK_DELAY_MS = 600;
+const FALLBACK_PASSAGE = 'Seloa is preparing a passage for you.';
 
 const styles = StyleSheet.create({
   container: {
@@ -48,9 +50,21 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({ onExitService: _on
   const { lines } = usePassage();
   const orientation = useOrientation();
   const passageText = useMemo(() => lines.join(' '), [lines]);
+  const normalizedPassageText = passageText?.trim() ?? '';
+  const safePassageText = normalizedPassageText.length > 0 ? normalizedPassageText : FALLBACK_PASSAGE;
+
   const [isMenuVisible, setMenuVisible] = useState(false);
   const [isBackgroundReady, setBackgroundReady] = useState(false);
   const [isTextReady, setTextReady] = useState(false);
+  const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    console.log('passageText:', safePassageText);
+  }, [safePassageText]);
+
+  useEffect(() => {
+    console.log('isReady:', isTextReady);
+  }, [isTextReady]);
 
   const handleOpenMenu = useCallback(() => {
     setMenuVisible(true);
@@ -65,19 +79,22 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({ onExitService: _on
   }, []);
 
   useEffect(() => {
-    if (!isBackgroundReady) {
-      setTextReady(false);
-      return;
+    if (readyTimerRef.current) {
+      clearTimeout(readyTimerRef.current);
     }
+    setTextReady(false);
 
-    const timer = setTimeout(() => {
+    const delay = isBackgroundReady ? TEXT_DELAY_MS : TEXT_FALLBACK_DELAY_MS;
+    readyTimerRef.current = setTimeout(() => {
       setTextReady(true);
-    }, TEXT_DELAY_MS);
+    }, delay);
 
     return () => {
-      clearTimeout(timer);
+      if (readyTimerRef.current) {
+        clearTimeout(readyTimerRef.current);
+      }
     };
-  }, [isBackgroundReady]);
+  }, [isBackgroundReady, safePassageText]);
 
   return (
     <AdaptiveBackground onReady={handleBackgroundReady}>
@@ -85,7 +102,7 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({ onExitService: _on
         <View style={styles.textBlock}>
           <AnimatedPassageText
             key={`passage-${orientation}`}
-            line={passageText}
+            line={safePassageText}
             containerStyle={styles.paragraphContainer}
             style={styles.paragraph}
             isReady={isTextReady}
