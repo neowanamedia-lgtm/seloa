@@ -45,6 +45,15 @@ const LOCALE_COPY: Record<LanguageValue, LocaleCopy> = {
   },
 };
 
+const CTA_LABELS: Record<LanguageValue, string> = {
+  ko: '문장 보기',
+  en: 'View Passage',
+  ja: '文章を見る',
+  zh: '文章查看',
+  es: 'Ver texto',
+  ar: 'عرض النص',
+};
+
 const EMOTION_LABELS: LabelMap<EmotionValue> = {
   joy: { ko: '기쁨', en: 'Joy', ja: '喜び', zh: '喜悦', es: 'Alegría', ar: 'فرح' },
   hope: { ko: '희망', en: 'Hope', ja: '希望', zh: '希望', es: 'Esperanza', ar: 'أمل' },
@@ -73,7 +82,7 @@ const LANGUAGE_LABELS: LabelMap<LanguageValue> = {
   ja: { ko: '일본어', en: 'Japanese', ja: '日本語', zh: '日语', es: 'Japonés', ar: 'اليابانية' },
   zh: { ko: '중국어', en: 'Chinese', ja: '中国語', zh: '中文', es: 'Chino', ar: 'الصينية' },
   es: { ko: '스페인어', en: 'Spanish', ja: 'スペイン語', zh: '西班牙语', es: 'Español', ar: 'الإسبانية' },
-  ar: { ko: '아랍어', en: 'Arabic', ja: 'アラ비아語', zh: '阿拉伯语', es: 'Árabe', ar: 'العربية' },
+  ar: { ko: '아랍어', en: 'Arabic', ja: 'アラビア語', zh: '阿拉伯语', es: 'Árabe', ar: 'العربية' },
 };
 
 const FONT_LABELS: LabelMap<FontValue> = {
@@ -150,6 +159,7 @@ const MenuScreen: React.FC = () => {
 
   const localeCopy = useMemo(() => LOCALE_COPY[language], [language]);
   const sectionLabel = useMemo(() => SECTION_LABELS[language], [language]);
+  const ctaLabel = CTA_LABELS[language];
 
   const togglePhilosophy = (value: PhilosophyValue | 'all') => {
     if (value === 'all') {
@@ -175,82 +185,86 @@ const MenuScreen: React.FC = () => {
     <View style={styles.root}>
       <ImageBackground source={backgroundSource} style={styles.background} blurRadius={16}>
         <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top + 12 }]}>
-          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-            <View style={styles.header}>
-              <Text style={styles.logo}>Seloa</Text>
-              <Text style={styles.tagline}>{localeCopy.tagline}</Text>
+          <View style={styles.contentWrapper}>
+            <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+              <View style={styles.header}>
+                <Text style={styles.logo}>Seloa</Text>
+                <Text style={styles.tagline}>{localeCopy.tagline}</Text>
+              </View>
+
+              <SectionRow label={sectionLabel.emotion}>
+                {(Object.keys(EMOTION_LABELS) as EmotionValue[]).map((value) => (
+                  <Chip
+                    key={value}
+                    label={EMOTION_LABELS[value][language]}
+                    selected={emotion === value}
+                    onPress={() => setEmotion(value)}
+                  />
+                ))}
+              </SectionRow>
+
+              <SectionRow label={sectionLabel.philosophy}>
+                {(['all', 'eastern', 'western'] as Array<'all' | PhilosophyValue>).map((value) => (
+                  <Chip
+                    key={value}
+                    label={PHILOSOPHY_LABELS[value][language]}
+                    selected={value === 'all' ? philosophy.length === 0 : philosophy.includes(value as PhilosophyValue)}
+                    onPress={() => togglePhilosophy(value)}
+                  />
+                ))}
+              </SectionRow>
+
+              <SectionRow label={sectionLabel.religion}>
+                {(['none', 'christianity', 'buddhism', 'islam'] as Array<'none' | ReligionValue>).map((value) => (
+                  <Chip
+                    key={value}
+                    label={RELIGION_LABELS[value][language]}
+                    selected={value === 'none' ? religion.length === 0 : religion.includes(value as ReligionValue)}
+                    onPress={() => toggleReligion(value)}
+                  />
+                ))}
+              </SectionRow>
+
+              <SectionRow label={sectionLabel.language}>
+                {LANGUAGE_ORDER.map((value) => (
+                  <Chip
+                    key={value}
+                    label={LANGUAGE_LABELS[value][language]}
+                    selected={language === value}
+                    onPress={() => setLanguage(value)}
+                  />
+                ))}
+              </SectionRow>
+
+              <SectionRow label={sectionLabel.background}>
+                {(['auto', 'fixed'] as BackgroundValue[]).map((value) => (
+                  <Chip
+                    key={value}
+                    label={BACKGROUND_LABELS[value][language]}
+                    selected={backgroundMode === value}
+                    onPress={() => setBackgroundMode(value)}
+                  />
+                ))}
+              </SectionRow>
+
+              <SectionRow label={sectionLabel.font}>
+                {(['default', 'soft', 'handwriting'] as FontValue[]).map((value) => (
+                  <Chip
+                    key={value}
+                    label={FONT_LABELS[value][language]}
+                    selected={font === value}
+                    onPress={() => setFont(value)}
+                  />
+                ))}
+              </SectionRow>
+            </ScrollView>
+
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+              <Pressable style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
+                <Text style={styles.ctaLabel}>{ctaLabel}</Text>
+              </Pressable>
             </View>
-
-            <SectionRow label={sectionLabel.emotion}>
-              {(Object.keys(EMOTION_LABELS) as EmotionValue[]).map((value) => (
-                <Chip
-                  key={value}
-                  label={EMOTION_LABELS[value][language]}
-                  selected={emotion === value}
-                  onPress={() => setEmotion(value)}
-                />
-              ))}
-            </SectionRow>
-
-            <SectionRow label={sectionLabel.philosophy}>
-              {(['all', 'eastern', 'western'] as Array<'all' | PhilosophyValue>).map((value) => (
-                <Chip
-                  key={value}
-                  label={PHILOSOPHY_LABELS[value][language]}
-                  selected={value === 'all' ? philosophy.length === 0 : philosophy.includes(value as PhilosophyValue)}
-                  onPress={() => togglePhilosophy(value)}
-                />
-              ))}
-            </SectionRow>
-
-            <SectionRow label={sectionLabel.religion}>
-              {(['none', 'christianity', 'buddhism', 'islam'] as Array<'none' | ReligionValue>).map((value) => (
-                <Chip
-                  key={value}
-                  label={RELIGION_LABELS[value][language]}
-                  selected={value === 'none' ? religion.length === 0 : religion.includes(value as ReligionValue)}
-                  onPress={() => toggleReligion(value)}
-                />
-              ))}
-            </SectionRow>
-
-            <SectionRow label={sectionLabel.language}>
-              {LANGUAGE_ORDER.map((value) => (
-                <Chip
-                  key={value}
-                  label={LANGUAGE_LABELS[value][language]}
-                  selected={language === value}
-                  onPress={() => setLanguage(value)}
-                />
-              ))}
-            </SectionRow>
-
-            <SectionRow label={sectionLabel.background}>
-              {(['auto', 'fixed'] as BackgroundValue[]).map((value) => (
-                <Chip
-                  key={value}
-                  label={BACKGROUND_LABELS[value][language]}
-                  selected={backgroundMode === value}
-                  onPress={() => setBackgroundMode(value)}
-                />
-              ))}
-            </SectionRow>
-
-            <SectionRow label={sectionLabel.font}>
-              {(['default', 'soft', 'handwriting'] as FontValue[]).map((value) => (
-                <Chip
-                  key={value}
-                  label={FONT_LABELS[value][language]}
-                  selected={font === value}
-                  onPress={() => setFont(value)}
-                />
-              ))}
-            </SectionRow>
-
-            <Pressable style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
-              <Text style={styles.ctaLabel}>{localeCopy.buttonLabel}</Text>
-            </Pressable>
-          </ScrollView>
+          </View>
         </SafeAreaView>
       </ImageBackground>
     </View>
@@ -296,12 +310,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  contentWrapper: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 28,
+    paddingBottom: 12,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   logo: {
     fontSize: 28,
@@ -311,20 +328,22 @@ const styles = StyleSheet.create({
   },
   tagline: {
     marginTop: 4,
-    fontSize: 14,
+    fontSize: 22,
     color: '#1d2b4a',
-    lineHeight: 20,
+    lineHeight: 32,
   },
   sectionRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 6,
+    columnGap: 2,
   },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: LABEL_COLOR,
-    marginRight: 8,
+    marginRight: 4,
+    minWidth: 38,
     flexShrink: 0,
   },
   chipScroll: {
@@ -332,16 +351,15 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexGrow: 1,
-    paddingVertical: 1,
-    paddingRight: 10,
+    paddingVertical: 0,
   },
   chip: {
     borderWidth: 1,
     borderColor: BORDER_COLOR,
     borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    marginRight: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    marginRight: 3,
     backgroundColor: '#ffffff',
   },
   chipSelected: {
@@ -352,27 +370,30 @@ const styles = StyleSheet.create({
     backgroundColor: LIGHT_BG,
   },
   chipText: {
-    fontSize: 12,
+    fontSize: 17,
     color: '#1a1a1a',
   },
   chipTextSelected: {
     color: '#ffffff',
   },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
   cta: {
-    marginTop: 14,
-    alignSelf: 'flex-start',
     borderRadius: 999,
     backgroundColor: PRIMARY,
-    paddingHorizontal: 32,
-    paddingVertical: 11,
+    paddingHorizontal: 44,
+    paddingVertical: 16,
+    alignSelf: 'flex-start',
   },
   ctaPressed: {
     backgroundColor: PRIMARY_PRESSED,
   },
   ctaLabel: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
   },
 });
 
