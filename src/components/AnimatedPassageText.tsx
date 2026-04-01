@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 
+import { FontVariant, FONT_FAMILY_BY_VARIANT } from './PassageSourceText';
+
 const styles = StyleSheet.create({
   lineContainer: {
     flexDirection: 'row',
@@ -20,73 +22,48 @@ const WORD_FADE_DURATION = 660;
 const WORD_STAGGER = 220;
 const WORD_TRANSLATE_Y = 16;
 
-type FontVariant = 'default' | 'soft' | 'handwriting';
-
 export type AnimatedPassageTextProps = {
   line: string;
   style?: StyleProp<TextStyle>;
   containerStyle?: StyleProp<ViewStyle>;
   isReady?: boolean;
   onComplete?: () => void;
+  variant: FontVariant;
 };
 
-const detectFontVariant = (fontFamily?: string): FontVariant => {
-  if (!fontFamily) {
-    return 'default';
-  }
-  const normalized = fontFamily.toLowerCase();
-  if (normalized.includes('myeongjo') || normalized.includes('serif')) {
-    return 'soft';
-  }
-  if (normalized.includes('pen') || normalized.includes('script') || normalized.includes('hand')) {
-    return 'handwriting';
-  }
-  return 'default';
-};
-
-const createBalancedStyle = (
-  baseSize: number,
-  variant: FontVariant,
-  overrides: { lineHeight?: number; letterSpacing?: number },
-): TextStyle => {
-  let fontSize = baseSize;
-  let lineHeight = overrides.lineHeight;
-  let letterSpacing = overrides.letterSpacing;
-
+const getDefaultLineHeight = (variant: FontVariant, fontSize: number): number => {
   switch (variant) {
     case 'soft':
-      fontSize = baseSize + 1;
-      if (lineHeight === undefined) {
-        lineHeight = fontSize * 1.55;
-      }
-      if (letterSpacing === undefined) {
-        letterSpacing = 0.3;
-      }
-      break;
+      return fontSize * 1.55;
     case 'handwriting':
-      fontSize = baseSize + 5;
-      if (lineHeight === undefined) {
-        lineHeight = fontSize * 1.7;
-      }
-      if (letterSpacing === undefined) {
-        letterSpacing = 0.32;
-      }
-      break;
+      return fontSize * 1.7;
     default:
-      fontSize = baseSize;
-      if (lineHeight === undefined) {
-        lineHeight = baseSize * 1.5;
-      }
-      if (letterSpacing === undefined) {
-        letterSpacing = 0.1;
-      }
-      break;
+      return fontSize * 1.5;
   }
+};
 
+const getDefaultLetterSpacing = (variant: FontVariant): number => {
+  switch (variant) {
+    case 'soft':
+      return 0.3;
+    case 'handwriting':
+      return 0.32;
+    default:
+      return 0.1;
+  }
+};
+
+const createVariantTypography = (
+  variant: FontVariant,
+  baseSize: number,
+  overrides: { lineHeight?: number; letterSpacing?: number },
+): TextStyle => {
+  const fontSize = variant === 'handwriting' ? baseSize + 2 : baseSize;
   return {
+    fontFamily: FONT_FAMILY_BY_VARIANT[variant],
     fontSize,
-    lineHeight,
-    letterSpacing,
+    lineHeight: overrides.lineHeight ?? getDefaultLineHeight(variant, baseSize),
+    letterSpacing: overrides.letterSpacing ?? getDefaultLetterSpacing(variant),
   };
 };
 
@@ -96,6 +73,7 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
   containerStyle,
   isReady = true,
   onComplete,
+  variant,
 }) => {
   const safeLine = typeof line === 'string' ? line : '';
   const normalizedLine = safeLine.trim();
@@ -107,7 +85,7 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
   useEffect(() => {
     hasAnimatedRef.current = false;
     animatedValues.forEach((value) => value.setValue(0));
-  }, [normalizedLine, animatedValues, isReady]);
+  }, [normalizedLine, animatedValues, isReady, variant]);
 
   useEffect(() => {
     if (!isReady || hasAnimatedRef.current || words.length === 0) {
@@ -145,9 +123,8 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
 
   const flattenedStyle = StyleSheet.flatten(style) ?? {};
   const baseSize = typeof flattenedStyle.fontSize === 'number' ? flattenedStyle.fontSize : styles.word.fontSize;
-  const variant = detectFontVariant(typeof flattenedStyle.fontFamily === 'string' ? flattenedStyle.fontFamily : undefined);
 
-  const balancedTypography = createBalancedStyle(baseSize, variant, {
+  const variantTypography = createVariantTypography(variant, baseSize, {
     lineHeight: typeof flattenedStyle.lineHeight === 'number' ? flattenedStyle.lineHeight : undefined,
     letterSpacing: typeof flattenedStyle.letterSpacing === 'number' ? flattenedStyle.letterSpacing : undefined,
   });
@@ -160,7 +137,7 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
           style={[
             styles.word,
             style,
-            balancedTypography,
+            variantTypography,
             {
               opacity: animatedValues[index],
               transform: [

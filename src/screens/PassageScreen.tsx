@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AdaptiveBackground } from '../components/AdaptiveBackground';
 import { AnimatedPassageText } from '../components/AnimatedPassageText';
-import { PassageSourceText } from '../components/PassageSourceText';
+import { PassageSourceText, buildSourceTypography, FontVariant } from '../components/PassageSourceText';
 import { BottomDotButton } from '../components/BottomDotButton';
 import { MenuSlideSheet, MenuSelections } from '../components/MenuSlideSheet';
 import { usePassage } from '../hooks/usePassage';
@@ -13,48 +13,55 @@ const TEXT_DELAY_MS = 1400;
 const BASE_FONT_SIZE = 20;
 const SOURCE_CHARS_PER_LINE = 14;
 
-const FONT_FAMILY_MAP: Partial<Record<MenuSelections['language'], Record<MenuSelections['font'], string>>> = {
-  ko: {
-    default: 'NotoSansKR-Regular',
-    soft: 'NanumMyeongjo-Regular',
-    handwriting: 'NanumPenScript-Regular',
-  },
+const FONT_FAMILY_BY_VARIANT: Record<FontVariant, string> = {
+  default: 'NotoSansKR-Regular',
+  soft: 'NanumMyeongjo-Regular',
+  handwriting: 'NanumPenScript-Regular',
 };
 
-const getFontFamily = (
-  language: MenuSelections['language'],
-  font: MenuSelections['font'],
-  fontsLoaded?: boolean,
-): string | undefined => {
-  if (!fontsLoaded) {
-    return undefined;
+const getFontVariant = (font: MenuSelections['font']): FontVariant => {
+  if (font === 'soft') {
+    return 'soft';
   }
-  const langFonts = FONT_FAMILY_MAP[language];
-  if (!langFonts) {
-    return undefined;
+  if (font === 'handwriting') {
+    return 'handwriting';
   }
-  return langFonts[font] || langFonts.default;
+  return 'default';
 };
 
-const getBodyFontSize = (font: MenuSelections['font']): number => {
-  switch (font) {
+const getBodyFontSize = (variant: FontVariant): number => {
+  switch (variant) {
     case 'soft':
-      return BASE_FONT_SIZE + 1;
+      return BASE_FONT_SIZE + 2;
     case 'handwriting':
-      return BASE_FONT_SIZE + 5;
+      return BASE_FONT_SIZE + 8;
     default:
       return BASE_FONT_SIZE;
   }
 };
 
-const estimateSourceHeight = (text: string | undefined, baseFontSize: number): number => {
+const getParagraphFontStyle = (
+  fontsLoaded: boolean | undefined,
+  variant: FontVariant,
+): { fontFamily: string } | undefined => {
+  if (!fontsLoaded) {
+    return undefined;
+  }
+  return { fontFamily: FONT_FAMILY_BY_VARIANT[variant] };
+};
+
+const estimateSourceHeight = (
+  text: string | undefined,
+  baseFontSize: number,
+  variant: FontVariant,
+): number => {
   const trimmed = text?.trim();
   if (!trimmed) {
     return 0;
   }
 
-  const fontSize = Math.max(baseFontSize - 2, 8);
-  const lineHeight = fontSize * 1.45;
+  const { lineHeight } = buildSourceTypography(baseFontSize, variant);
+  const resolvedLineHeight = typeof lineHeight === 'number' ? lineHeight : baseFontSize * 1.45;
   const segments = trimmed.split(/\n+/).filter(Boolean);
 
   const approximateLines = segments.length > 0
@@ -64,7 +71,7 @@ const estimateSourceHeight = (text: string | undefined, baseFontSize: number): n
       }, 0)
     : Math.max(1, Math.ceil(trimmed.length / SOURCE_CHARS_PER_LINE));
 
-  return lineHeight * Math.max(1, approximateLines);
+  return resolvedLineHeight * Math.max(1, approximateLines);
 };
 
 const styles = StyleSheet.create({
@@ -74,11 +81,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
   },
+  containerLandscape: {
+    justifyContent: 'flex-start',
+    paddingTop: 32,
+  },
   textBlock: {
     width: '100%',
     maxWidth: 420,
-    transform: [{ translateY: -72 }],
     paddingHorizontal: 24,
+  },
+  textBlockPortrait: {
+    transform: [{ translateY: -72 }],
+  },
+  textBlockLandscape: {
+    paddingTop: 24,
+    transform: [{ translateY: -12 }],
   },
   paragraphContainer: {
     width: '100%',
@@ -111,6 +128,7 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   fontsLoaded,
 }) => {
   const orientation = useOrientation();
+  const isLandscape = orientation === 'landscape';
 
   const [menuSelections, setMenuSelections] = useState<MenuSelections>({
     language: 'ko',
@@ -126,6 +144,8 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   const [refreshKey, setRefreshKey] = useState(0);
   const [showSource, setShowSource] = useState(false);
 
+  const fontVariant = useMemo(() => getFontVariant(menuSelections.font), [menuSelections.font]);
+
   const { lines, sourceText } = usePassage({
     language: menuSelections.language,
     emotion: menuSelections.emotion,
@@ -136,15 +156,14 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
 
   const combinedText = useMemo(() => lines.join(' ').trim(), [lines]);
   const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const paragraphFontFamily = useMemo(
-    () => getFontFamily(menuSelections.language, menuSelections.font, fontsLoaded),
-    [menuSelections.language, menuSelections.font, fontsLoaded],
+  const paragraphFontStyle = useMemo(
+    () => getParagraphFontStyle(fontsLoaded, fontVariant),
+    [fontsLoaded, fontVariant],
   );
-  const paragraphFontStyle = paragraphFontFamily ? { fontFamily: paragraphFontFamily } : undefined;
-  const bodyFontSize = useMemo(() => getBodyFontSize(menuSelections.font), [menuSelections.font]);
+  const bodyFontSize = useMemo(() => getBodyFontSize(fontVariant), [fontVariant]);
   const sourceReserveHeight = useMemo(
-    () => estimateSourceHeight(sourceText, bodyFontSize),
-    [sourceText, bodyFontSize],
+    () => estimateSourceHeight(sourceText, bodyFontSize, fontVariant),
+    [sourceText, bodyFontSize, fontVariant],
   );
 
   const handleOpenMenu = useCallback(() => {
@@ -202,8 +221,13 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
 
   return (
     <AdaptiveBackground onReady={handleBackgroundReady}>
-      <View style={styles.container}>
-        <View style={styles.textBlock}>
+      <View style={[styles.container, isLandscape && styles.containerLandscape]}>
+        <View
+          style={[
+            styles.textBlock,
+            isLandscape ? styles.textBlockLandscape : styles.textBlockPortrait,
+          ]}
+        >
           <AnimatedPassageText
             key={`passage-${orientation}-${refreshKey}`}
             line={displayedText}
@@ -211,11 +235,17 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
             style={[styles.paragraph, paragraphFontStyle, { fontSize: bodyFontSize }]}
             isReady={isTextReady}
             onComplete={() => setShowSource(true)}
+            variant={fontVariant}
           />
           {sourceReserveHeight > 0 ? (
             <View style={[styles.sourceReserve, { marginTop: 18, minHeight: sourceReserveHeight }]}>
               {sourceText && showSource ? (
-                <PassageSourceText text={sourceText} baseFontSize={bodyFontSize} style={paragraphFontStyle} />
+                <PassageSourceText
+                  text={sourceText}
+                  baseFontSize={bodyFontSize}
+                  variant={fontVariant}
+                  style={paragraphFontStyle}
+                />
               ) : null}
             </View>
           ) : null}
