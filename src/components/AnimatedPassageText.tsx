@@ -25,6 +25,7 @@ export type AnimatedPassageTextProps = {
   style?: TextStyle;
   containerStyle?: ViewStyle;
   isReady?: boolean;
+  onComplete?: () => void;
 };
 
 export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
@@ -32,6 +33,7 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
   style,
   containerStyle,
   isReady = true,
+  onComplete,
 }) => {
   const safeLine = typeof line === 'string' ? line : '';
   const normalizedLine = safeLine.trim();
@@ -47,6 +49,9 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
 
   useEffect(() => {
     if (!isReady || hasAnimatedRef.current || words.length === 0) {
+      if (!isReady) {
+        hasAnimatedRef.current = false;
+      }
       return;
     }
 
@@ -63,12 +68,13 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
     sequence.start(() => {
       hasAnimatedRef.current = true;
       animationRef.current = null;
+      onComplete?.();
     });
 
     return () => {
       animationRef.current?.stop();
     };
-  }, [animatedValues, isReady, words.length]);
+  }, [animatedValues, isReady, words.length, onComplete]);
 
   if (words.length === 0) {
     return (
