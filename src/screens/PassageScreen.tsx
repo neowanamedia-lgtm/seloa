@@ -1,14 +1,71 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AdaptiveBackground } from '../components/AdaptiveBackground';
 import { AnimatedPassageText } from '../components/AnimatedPassageText';
+import { PassageSourceText } from '../components/PassageSourceText';
 import { BottomDotButton } from '../components/BottomDotButton';
 import { MenuSlideSheet, MenuSelections } from '../components/MenuSlideSheet';
 import { usePassage } from '../hooks/usePassage';
 import { useOrientation } from '../hooks/useOrientation';
 
 const TEXT_DELAY_MS = 1400;
+const BASE_FONT_SIZE = 20;
+const SOURCE_CHARS_PER_LINE = 14;
+
+const FONT_FAMILY_MAP: Partial<Record<MenuSelections['language'], Record<MenuSelections['font'], string>>> = {
+  ko: {
+    default: 'NotoSansKR-Regular',
+    soft: 'NanumMyeongjo-Regular',
+    handwriting: 'NanumPenScript-Regular',
+  },
+};
+
+const getFontFamily = (
+  language: MenuSelections['language'],
+  font: MenuSelections['font'],
+  fontsLoaded?: boolean,
+): string | undefined => {
+  if (!fontsLoaded) {
+    return undefined;
+  }
+  const langFonts = FONT_FAMILY_MAP[language];
+  if (!langFonts) {
+    return undefined;
+  }
+  return langFonts[font] || langFonts.default;
+};
+
+const getBodyFontSize = (font: MenuSelections['font']): number => {
+  switch (font) {
+    case 'soft':
+      return BASE_FONT_SIZE + 1;
+    case 'handwriting':
+      return BASE_FONT_SIZE + 5;
+    default:
+      return BASE_FONT_SIZE;
+  }
+};
+
+const estimateSourceHeight = (text: string | undefined, baseFontSize: number): number => {
+  const trimmed = text?.trim();
+  if (!trimmed) {
+    return 0;
+  }
+
+  const fontSize = Math.max(baseFontSize - 2, 8);
+  const lineHeight = fontSize * 1.45;
+  const segments = trimmed.split(/\n+/).filter(Boolean);
+
+  const approximateLines = segments.length > 0
+    ? segments.reduce((total, segment) => {
+        const length = segment.trim().length || SOURCE_CHARS_PER_LINE;
+        return total + Math.max(1, Math.ceil(length / SOURCE_CHARS_PER_LINE));
+      }, 0)
+    : Math.max(1, Math.ceil(trimmed.length / SOURCE_CHARS_PER_LINE));
+
+  return lineHeight * Math.max(1, approximateLines);
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -20,27 +77,20 @@ const styles = StyleSheet.create({
   textBlock: {
     width: '100%',
     maxWidth: 420,
-    alignSelf: 'center',
-    transform: [{ translateY: -96 }],
+    transform: [{ translateY: -72 }],
     paddingHorizontal: 24,
   },
   paragraphContainer: {
     width: '100%',
   },
   paragraph: {
-    fontSize: 20,
+    fontSize: BASE_FONT_SIZE,
     lineHeight: 32,
     color: '#ffffff',
     textAlign: 'left',
   },
-  sourceWrapper: {
-    marginTop: 18,
-    marginLeft: 12,
-  },
-  sourceText: {
-    fontSize: 18,
-    lineHeight: 26,
-    color: 'rgba(255,255,255,0.78)',
+  sourceReserve: {
+    width: '100%',
   },
   bottomButton: {
     position: 'absolute',
@@ -52,11 +102,13 @@ const styles = StyleSheet.create({
 type PassageScreenProps = {
   onExitService: () => void;
   initialMenuVisible?: boolean;
+  fontsLoaded?: boolean;
 };
 
 export const PassageScreen: React.FC<PassageScreenProps> = ({
   onExitService: _onExitService,
   initialMenuVisible = true,
+  fontsLoaded,
 }) => {
   const orientation = useOrientation();
 
@@ -71,11 +123,8 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   const [isMenuVisible, setMenuVisible] = useState(initialMenuVisible);
   const [isBackgroundReady, setBackgroundReady] = useState(false);
   const [isTextReady, setTextReady] = useState(false);
-  const [isTextComplete, setTextComplete] = useState(false);
-  const [hasAppliedOnce, setHasAppliedOnce] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  const sourceAnim = useRef(new Animated.Value(0)).current;
+  const [showSource, setShowSource] = useState(false);
 
   const { lines, sourceText } = usePassage({
     language: menuSelections.language,
@@ -87,6 +136,16 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
 
   const combinedText = useMemo(() => lines.join(' ').trim(), [lines]);
   const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paragraphFontFamily = useMemo(
+    () => getFontFamily(menuSelections.language, menuSelections.font, fontsLoaded),
+    [menuSelections.language, menuSelections.font, fontsLoaded],
+  );
+  const paragraphFontStyle = paragraphFontFamily ? { fontFamily: paragraphFontFamily } : undefined;
+  const bodyFontSize = useMemo(() => getBodyFontSize(menuSelections.font), [menuSelections.font]);
+  const sourceReserveHeight = useMemo(
+    () => estimateSourceHeight(sourceText, bodyFontSize),
+    [sourceText, bodyFontSize],
+  );
 
   const handleOpenMenu = useCallback(() => {
     setMenuVisible(true);
@@ -102,12 +161,10 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
       philosophy: [...options.philosophy],
       religion: [...options.religion],
     });
-    setHasAppliedOnce(true);
     setRefreshKey((prev) => prev + 1);
     setTextReady(false);
-    setTextComplete(false);
-    sourceAnim.setValue(0);
-  }, [sourceAnim]);
+    setShowSource(false);
+  }, []);
 
   const handleBackgroundReady = useCallback(() => {
     setBackgroundReady(true);
@@ -119,10 +176,9 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
       readyTimerRef.current = null;
     }
 
-    if (!isBackgroundReady || isMenuVisible || !hasAppliedOnce) {
+    if (!isBackgroundReady || isMenuVisible) {
       setTextReady(false);
-      setTextComplete(false);
-      sourceAnim.setValue(0);
+      setShowSource(false);
       return;
     }
 
@@ -136,16 +192,11 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
         readyTimerRef.current = null;
       }
     };
-  }, [isBackgroundReady, isMenuVisible, hasAppliedOnce, refreshKey, combinedText, sourceAnim]);
+  }, [isBackgroundReady, isMenuVisible, refreshKey, combinedText]);
 
   useEffect(() => {
-    const target = isTextComplete && sourceText ? 1 : 0;
-    Animated.timing(sourceAnim, {
-      toValue: target,
-      duration: 320,
-      useNativeDriver: true,
-    }).start();
-  }, [isTextComplete, sourceText, sourceAnim]);
+    setShowSource(false);
+  }, [orientation]);
 
   const displayedText = isTextReady ? combinedText : '';
 
@@ -157,30 +208,16 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
             key={`passage-${orientation}-${refreshKey}`}
             line={displayedText}
             containerStyle={styles.paragraphContainer}
-            style={styles.paragraph}
+            style={[styles.paragraph, paragraphFontStyle, { fontSize: bodyFontSize }]}
             isReady={isTextReady}
-            onComplete={() => setTextComplete(true)}
+            onComplete={() => setShowSource(true)}
           />
-          {sourceText ? (
-            <Animated.View
-              style={[
-                styles.sourceWrapper,
-                {
-                  opacity: sourceAnim,
-                  transform: [
-                    {
-                      translateY: sourceAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [8, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <Text style={styles.sourceText}>{sourceText}</Text>
-            </Animated.View>
+          {sourceReserveHeight > 0 ? (
+            <View style={[styles.sourceReserve, { marginTop: 18, minHeight: sourceReserveHeight }]}>
+              {sourceText && showSource ? (
+                <PassageSourceText text={sourceText} baseFontSize={bodyFontSize} style={paragraphFontStyle} />
+              ) : null}
+            </View>
           ) : null}
         </View>
       </View>

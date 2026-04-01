@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
+import { Animated, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 
 const styles = StyleSheet.create({
   lineContainer: {
@@ -20,12 +20,74 @@ const WORD_FADE_DURATION = 660;
 const WORD_STAGGER = 220;
 const WORD_TRANSLATE_Y = 16;
 
+type FontVariant = 'default' | 'soft' | 'handwriting';
+
 export type AnimatedPassageTextProps = {
   line: string;
-  style?: TextStyle;
-  containerStyle?: ViewStyle;
+  style?: StyleProp<TextStyle>;
+  containerStyle?: StyleProp<ViewStyle>;
   isReady?: boolean;
   onComplete?: () => void;
+};
+
+const detectFontVariant = (fontFamily?: string): FontVariant => {
+  if (!fontFamily) {
+    return 'default';
+  }
+  const normalized = fontFamily.toLowerCase();
+  if (normalized.includes('myeongjo') || normalized.includes('serif')) {
+    return 'soft';
+  }
+  if (normalized.includes('pen') || normalized.includes('script') || normalized.includes('hand')) {
+    return 'handwriting';
+  }
+  return 'default';
+};
+
+const createBalancedStyle = (
+  baseSize: number,
+  variant: FontVariant,
+  overrides: { lineHeight?: number; letterSpacing?: number },
+): TextStyle => {
+  let fontSize = baseSize;
+  let lineHeight = overrides.lineHeight;
+  let letterSpacing = overrides.letterSpacing;
+
+  switch (variant) {
+    case 'soft':
+      fontSize = baseSize + 1;
+      if (lineHeight === undefined) {
+        lineHeight = fontSize * 1.55;
+      }
+      if (letterSpacing === undefined) {
+        letterSpacing = 0.3;
+      }
+      break;
+    case 'handwriting':
+      fontSize = baseSize + 5;
+      if (lineHeight === undefined) {
+        lineHeight = fontSize * 1.7;
+      }
+      if (letterSpacing === undefined) {
+        letterSpacing = 0.32;
+      }
+      break;
+    default:
+      fontSize = baseSize;
+      if (lineHeight === undefined) {
+        lineHeight = baseSize * 1.5;
+      }
+      if (letterSpacing === undefined) {
+        letterSpacing = 0.1;
+      }
+      break;
+  }
+
+  return {
+    fontSize,
+    lineHeight,
+    letterSpacing,
+  };
 };
 
 export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
@@ -49,8 +111,9 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
 
   useEffect(() => {
     if (!isReady || hasAnimatedRef.current || words.length === 0) {
-      if (!isReady) {
-        hasAnimatedRef.current = false;
+      if (isReady && words.length === 0 && normalizedLine.length > 0 && !hasAnimatedRef.current) {
+        hasAnimatedRef.current = true;
+        onComplete?.();
       }
       return;
     }
@@ -74,15 +137,20 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
     return () => {
       animationRef.current?.stop();
     };
-  }, [animatedValues, isReady, words.length, onComplete]);
+  }, [animatedValues, isReady, words.length, normalizedLine.length, onComplete]);
 
-  if (words.length === 0) {
-    return (
-      <View style={[styles.lineContainer, containerStyle]}>
-        <Animated.Text style={[styles.word, style]}>{safeLine}</Animated.Text>
-      </View>
-    );
+  if (!normalizedLine.length) {
+    return null;
   }
+
+  const flattenedStyle = StyleSheet.flatten(style) ?? {};
+  const baseSize = typeof flattenedStyle.fontSize === 'number' ? flattenedStyle.fontSize : styles.word.fontSize;
+  const variant = detectFontVariant(typeof flattenedStyle.fontFamily === 'string' ? flattenedStyle.fontFamily : undefined);
+
+  const balancedTypography = createBalancedStyle(baseSize, variant, {
+    lineHeight: typeof flattenedStyle.lineHeight === 'number' ? flattenedStyle.lineHeight : undefined,
+    letterSpacing: typeof flattenedStyle.letterSpacing === 'number' ? flattenedStyle.letterSpacing : undefined,
+  });
 
   return (
     <View style={[styles.lineContainer, containerStyle]}>
@@ -92,6 +160,7 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
           style={[
             styles.word,
             style,
+            balancedTypography,
             {
               opacity: animatedValues[index],
               transform: [
