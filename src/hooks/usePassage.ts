@@ -7,10 +7,7 @@ import type {
 } from '../types/menu';
 
 import easternLaoziKo from '../data/passages/eastern/ko/laozi.json';
-
-
-
-
+import westernEpictetusKo from '../data/passages/western/ko/epictetus.json';
 
 type EmotionKey =
   | 'unknown'
@@ -28,6 +25,9 @@ type PassageMeta = {
   tradition?: string;
   source?: string;
   reference?: string;
+  sourceDisplay?: string;
+  bookDisplay?: string;
+  chapterDisplay?: string;
 };
 
 type RawPassage = {
@@ -66,7 +66,16 @@ type LibraryEntry = {
 type LibraryCache = Partial<Record<LanguageOption, PassageRecord[]>>;
 
 const PASSAGE_SOURCES: LibraryEntry[] = [
-  { loader: () => easternLaoziKo as PassageFile, category: 'eastern_philosophy', language: 'ko' },
+  {
+    loader: () => easternLaoziKo as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernEpictetusKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
 ];
 
 const LIBRARY_CACHE: LibraryCache = {};
@@ -197,7 +206,12 @@ function buildSourceText(meta: PassageMeta | undefined): string {
     return '';
   }
 
-  const parts: string[] = [];
+  const displayBook =
+    typeof meta.bookDisplay === 'string' ? meta.bookDisplay.trim() : '';
+  const displayChapter =
+    typeof meta.chapterDisplay === 'string' ? meta.chapterDisplay.trim() : '';
+  const displaySource =
+    typeof meta.sourceDisplay === 'string' ? meta.sourceDisplay.trim() : '';
 
   const author = typeof meta.author === 'string' ? meta.author.trim() : '';
   const book = typeof meta.book === 'string' ? meta.book.trim() : '';
@@ -213,27 +227,36 @@ function buildSourceText(meta: PassageMeta | undefined): string {
   const source = typeof meta.source === 'string' ? meta.source.trim() : '';
   const reference = typeof meta.reference === 'string' ? meta.reference.trim() : '';
 
-  if (author) parts.push(author);
-  if (book) parts.push(book);
+  const parts: string[] = [];
 
-  if (chapter && verse) {
+  if (displaySource) {
+    parts.push(displaySource);
+  } else if (tradition) {
+    parts.push(tradition);
+  }
+
+  if (displayBook) {
+    parts.push(displayBook);
+  } else if (book) {
+    parts.push(book);
+  } else if (source) {
+    parts.push(source);
+  }
+
+  if (displayChapter) {
+    parts.push(displayChapter);
+  } else if (chapter && verse) {
     parts.push(`${chapter}:${verse}`);
   } else if (chapter) {
     parts.push(chapter);
   } else if (verse) {
     parts.push(verse);
-  }
-
-  if (!author && tradition) {
-    parts.push(tradition);
-  }
-
-  if (!book && source) {
-    parts.push(source);
-  }
-
-  if (reference) {
+  } else if (reference) {
     parts.push(reference);
+  }
+
+  if (!displayBook && !book && !source && author) {
+    parts.unshift(author);
   }
 
   return parts.filter(Boolean).join(' · ');
@@ -274,4 +297,3 @@ function pickPassage(passages: PassageRecord[], refreshKey: number): PassageReco
   const index = Math.abs(refreshKey) % passages.length;
   return passages[index] ?? passages[0] ?? null;
 }
-
