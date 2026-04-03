@@ -9,6 +9,26 @@ import type {
 import easternLaoziKo from '../data/passages/eastern/ko/laozi.json';
 import westernEpictetusKo from '../data/passages/western/ko/epictetus.json';
 
+import buddhismDhammapadaKo from '../data/passages/religion/buddhism/ko/dhammapada.ko.json';
+import buddhismDiamondSutraKo from '../data/passages/religion/buddhism/ko/diamond_sutra.ko.json';
+import buddhismHeartSutraKo from '../data/passages/religion/buddhism/ko/heart_sutra_ko.json';
+import buddhismMixedSutrasKo from '../data/passages/religion/buddhism/ko/mixed_sutras.ko.json';
+
+import christianityBibleNtPart1Ko from '../data/passages/religion/christianity/ko/bible_nt_part1.json';
+import christianityBibleNtPart2Ko from '../data/passages/religion/christianity/ko/bible_nt_part2.json';
+import christianityBibleOtPart1Ko from '../data/passages/religion/christianity/ko/bible_ot_part1.json';
+import christianityBibleOtPart2Ko from '../data/passages/religion/christianity/ko/bible_ot_part2.json';
+
+import islamQuranPart1Ko from '../data/passages/religion/islam/ko/quran_part1.json';
+
+import {
+  adaptPassageFile,
+  buildSourceText,
+  type PassageFile,
+  type PassageMeta,
+  type RawPassage,
+} from './passageAdapter';
+
 type EmotionKey =
   | 'unknown'
   | 'joy'
@@ -16,31 +36,6 @@ type EmotionKey =
   | 'anxiety'
   | 'depression'
   | 'sadness';
-
-type PassageMeta = {
-  author?: string;
-  book?: string;
-  chapter?: string | number;
-  verse?: string | number;
-  tradition?: string;
-  source?: string;
-  reference?: string;
-  sourceDisplay?: string;
-  bookDisplay?: string;
-  chapterDisplay?: string;
-};
-
-type RawPassage = {
-  id: string;
-  lines?: string[];
-  emotionCore?: EmotionKey;
-  emotionExtended?: EmotionKey[];
-  meta?: PassageMeta;
-};
-
-type PassageFile = {
-  passages?: RawPassage[];
-};
 
 type PassageRecord = {
   id: string;
@@ -58,7 +53,7 @@ type UsePassageResult = {
 };
 
 type LibraryEntry = {
-  loader: () => PassageFile | undefined;
+  loader: () => unknown;
   category: ContentCategory;
   language: LanguageOption;
 };
@@ -74,6 +69,54 @@ const PASSAGE_SOURCES: LibraryEntry[] = [
   {
     loader: () => westernEpictetusKo as PassageFile,
     category: 'western_philosophy',
+    language: 'ko',
+  },
+
+  {
+    loader: () => buddhismDhammapadaKo as PassageFile,
+    category: 'buddhism',
+    language: 'ko',
+  },
+  {
+    loader: () => buddhismDiamondSutraKo as PassageFile,
+    category: 'buddhism',
+    language: 'ko',
+  },
+  {
+    loader: () => buddhismHeartSutraKo as PassageFile,
+    category: 'buddhism',
+    language: 'ko',
+  },
+  {
+    loader: () => buddhismMixedSutrasKo as PassageFile,
+    category: 'buddhism',
+    language: 'ko',
+  },
+
+  {
+    loader: () => christianityBibleNtPart1Ko as PassageFile,
+    category: 'christianity',
+    language: 'ko',
+  },
+  {
+    loader: () => christianityBibleNtPart2Ko as PassageFile,
+    category: 'christianity',
+    language: 'ko',
+  },
+  {
+    loader: () => christianityBibleOtPart1Ko as PassageFile,
+    category: 'christianity',
+    language: 'ko',
+  },
+  {
+    loader: () => christianityBibleOtPart2Ko as PassageFile,
+    category: 'christianity',
+    language: 'ko',
+  },
+
+  {
+    loader: () => islamQuranPart1Ko as PassageFile,
+    category: 'islam',
     language: 'ko',
   },
 ];
@@ -98,7 +141,16 @@ export function usePassage(
     }
 
     const filtered = filterPassages(library, safeSelections);
-    const pool = filtered.length ? filtered : library;
+    const hasCategorySelection =
+      Array.isArray(safeSelections.selectedCategories) &&
+      safeSelections.selectedCategories.length > 0;
+
+    const pool = filtered.length
+      ? filtered
+      : hasCategorySelection
+        ? []
+        : library;
+
     const picked = pickPassage(pool, refreshKey);
 
     if (!picked) {
@@ -127,25 +179,25 @@ function buildPassageLibrary(entries: LibraryEntry[]): PassageRecord[] {
   const records: PassageRecord[] = [];
 
   entries.forEach(({ loader, category, language }) => {
-    const file = loader();
+    const rawFile = loader();
+    const file = adaptPassageFile(rawFile);
 
-    if (!file || !Array.isArray(file.passages)) {
+    if (!file.passages.length) {
       return;
     }
 
-    file.passages.forEach((raw) => {
+    file.passages.forEach((raw: RawPassage) => {
       if (!raw || typeof raw.id !== 'string') {
         return;
       }
 
-      const lines = normalizeLines(raw.lines);
-      if (!lines.length) {
+      if (!Array.isArray(raw.lines) || !raw.lines.length) {
         return;
       }
 
       records.push({
         id: raw.id,
-        lines,
+        lines: raw.lines,
         category,
         language,
         emotionCore: isEmotionKey(raw.emotionCore) ? raw.emotionCore : undefined,
@@ -188,78 +240,6 @@ function normalizeEmotionExtended(value: unknown): EmotionKey[] {
   }
 
   return value.filter(isEmotionKey);
-}
-
-function normalizeLines(lines: unknown): string[] {
-  if (!Array.isArray(lines)) {
-    return [];
-  }
-
-  return lines
-    .filter((line): line is string => typeof line === 'string')
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function buildSourceText(meta: PassageMeta | undefined): string {
-  if (!meta) {
-    return '';
-  }
-
-  const displayBook =
-    typeof meta.bookDisplay === 'string' ? meta.bookDisplay.trim() : '';
-  const displayChapter =
-    typeof meta.chapterDisplay === 'string' ? meta.chapterDisplay.trim() : '';
-  const displaySource =
-    typeof meta.sourceDisplay === 'string' ? meta.sourceDisplay.trim() : '';
-
-  const author = typeof meta.author === 'string' ? meta.author.trim() : '';
-  const book = typeof meta.book === 'string' ? meta.book.trim() : '';
-  const chapter =
-    typeof meta.chapter === 'string' || typeof meta.chapter === 'number'
-      ? String(meta.chapter).trim()
-      : '';
-  const verse =
-    typeof meta.verse === 'string' || typeof meta.verse === 'number'
-      ? String(meta.verse).trim()
-      : '';
-  const tradition = typeof meta.tradition === 'string' ? meta.tradition.trim() : '';
-  const source = typeof meta.source === 'string' ? meta.source.trim() : '';
-  const reference = typeof meta.reference === 'string' ? meta.reference.trim() : '';
-
-  const parts: string[] = [];
-
-  if (displaySource) {
-    parts.push(displaySource);
-  } else if (tradition) {
-    parts.push(tradition);
-  }
-
-  if (displayBook) {
-    parts.push(displayBook);
-  } else if (book) {
-    parts.push(book);
-  } else if (source) {
-    parts.push(source);
-  }
-
-  if (displayChapter) {
-    parts.push(displayChapter);
-  } else if (chapter && verse) {
-    parts.push(`${chapter}:${verse}`);
-  } else if (chapter) {
-    parts.push(chapter);
-  } else if (verse) {
-    parts.push(verse);
-  } else if (reference) {
-    parts.push(reference);
-  }
-
-  if (!displayBook && !book && !source && author) {
-    parts.unshift(author);
-  }
-
-  return parts.filter(Boolean).join(' · ');
 }
 
 function filterPassages(
