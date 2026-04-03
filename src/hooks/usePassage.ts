@@ -1,288 +1,277 @@
 import { useMemo } from 'react';
-import type { MenuSelections } from '../components/MenuSlideSheet';
 
-import classicsMix from '../data/passages/eastern/ko/classics_mix.json';
-import confucius from '../data/passages/eastern/ko/confucius.json';
-import easternMis01 from '../data/passages/eastern/ko/EASTERN_MIS 01.json';
-import easternMis02 from '../data/passages/eastern/ko/EASTERN_MIS 02.json';
-import easternMis03 from '../data/passages/eastern/ko/EASTERN_MIS 03.json';
-import laozi from '../data/passages/eastern/ko/laozi.json';
-import mencius from '../data/passages/eastern/ko/mencius.json';
-import zhuangzi from '../data/passages/eastern/ko/zhuangzi.json';
+import type {
+  ContentCategory,
+  LanguageOption,
+  MenuSelectionState,
+} from '../types/menu';
 
-import epictetus from '../data/passages/western/ko/epictetus.json';
-import erichFromm from '../data/passages/western/ko/Erich Fromm.json';
-import marcusAurelius from '../data/passages/western/ko/marcus_aurelius.json';
-import nietzsche01 from '../data/passages/western/ko/nietzsche_01.json';
-import nietzsche02 from '../data/passages/western/ko/nietzsche_02.json';
-import nietzsche03 from '../data/passages/western/ko/nietzsche_03.json';
-import plato from '../data/passages/western/ko/Plato.json';
-import sartreFreud from '../data/passages/western/ko/sartre_freud.json';
-import seneca from '../data/passages/western/ko/seneca.json';
-import westernMisc01 from '../data/passages/western/ko/western_misc_01.json';
+import easternLaoziKo from '../data/passages/eastern/ko/laozi.json';
 
-import buddhismDhammapada from '../data/passages/religion/buddhism/ko/dhammapada.ko.json';
-import buddhismDiamond from '../data/passages/religion/buddhism/ko/diamond_sutra.ko.json';
-import buddhismHeart from '../data/passages/religion/buddhism/ko/heart_sutra_ko.json';
-import buddhismMixed from '../data/passages/religion/buddhism/ko/mixed_sutras.ko.json';
 
-import christianNtPart1 from '../data/passages/religion/christianity/ko/bible_nt_part1.json';
-import christianOtPart1 from '../data/passages/religion/christianity/ko/bible_ot_part1.json';
-import christianOtPart2 from '../data/passages/religion/christianity/ko/bible_ot_part2.json';
 
-import quranPart1 from '../data/passages/religion/islam/ko/quran_part1.json';
-import quranPart2 from '../data/passages/religion/islam/ko/quran_part2.json';
-import quranPart3 from '../data/passages/religion/islam/ko/quran_part3.json';
-import quranPart4 from '../data/passages/religion/islam/ko/quran_part4.json';
 
-const FALLBACK_PASSAGE = 'Seloa is preparing a passage for you.';
-const FALLBACK_RESULT = { lines: [FALLBACK_PASSAGE], sourceText: '' };
 
-type EmotionValue = 'joy' | 'hope' | 'anxiety' | 'depression' | 'sadness';
-type PhilosophyKind = 'eastern' | 'western';
-type ReligionKind = 'buddhism' | 'christianity' | 'islam';
+type EmotionKey =
+  | 'unknown'
+  | 'joy'
+  | 'hope'
+  | 'anxiety'
+  | 'depression'
+  | 'sadness';
 
-type RawMeta = {
-  tradition?: string;
-  philosophy?: string;
-  religion?: string;
+type PassageMeta = {
   author?: string;
-  authorDisplay?: string;
-  source?: string;
-  sourceDisplay?: string;
   book?: string;
-  bookDisplay?: string;
-  chapter?: string;
-  chapterDisplay?: string;
-  section?: string;
-  sectionDisplay?: string;
-  part?: string;
-  partDisplay?: string;
+  chapter?: string | number;
+  verse?: string | number;
+  tradition?: string;
+  source?: string;
   reference?: string;
-  referenceDisplay?: string;
 };
 
 type RawPassage = {
   id: string;
-  meta: RawMeta;
-  emotionCore: EmotionValue;
-  emotionExtended?: string[];
+  lines?: string[];
+  emotionCore?: EmotionKey;
+  emotionExtended?: EmotionKey[];
+  meta?: PassageMeta;
+};
+
+type PassageFile = {
+  passages?: RawPassage[];
+};
+
+type PassageRecord = {
+  id: string;
   lines: string[];
+  category: ContentCategory;
+  language: LanguageOption;
+  emotionCore?: EmotionKey;
+  emotionExtended?: EmotionKey[];
+  meta?: PassageMeta;
 };
 
-type NormalizedPassage = RawPassage & {
-  category: 'philosophy' | 'religion';
-  philosophyKind?: PhilosophyKind;
-  religionKind?: ReligionKind;
-};
-
-type UsePassageOptions = Pick<MenuSelections, 'language' | 'emotion' | 'philosophy' | 'religion'> & {
-  refreshKey: number;
-};
-
-export type PassageResult = {
+type UsePassageResult = {
   lines: string[];
   sourceText: string;
 };
 
-const RELIGION_DISPLAY: Record<ReligionKind, string> = {
-  buddhism: '불교',
-  christianity: '기독교',
-  islam: '이슬람',
+type LibraryEntry = {
+  loader: () => PassageFile | undefined;
+  category: ContentCategory;
+  language: LanguageOption;
 };
 
-const asArray = (data: any): RawPassage[] => {
-  if (!data) {
-    return [];
-  }
-  if (Array.isArray(data)) {
-    return data as RawPassage[];
-  }
-  if (Array.isArray((data as { passages?: RawPassage[] }).passages)) {
-    return (data as { passages: RawPassage[] }).passages;
-  }
-  return [];
-};
+type LibraryCache = Partial<Record<LanguageOption, PassageRecord[]>>;
 
-const collectPassages = (
-  data: any,
-  info: { category: 'philosophy' | 'religion'; philosophyKind?: PhilosophyKind; religionKind?: ReligionKind },
-): NormalizedPassage[] => {
-  return asArray(data).map((entry) => ({
-    ...entry,
-    emotionExtended: entry.emotionExtended ?? [],
-    category: info.category,
-    philosophyKind: info.philosophyKind,
-    religionKind: info.religionKind,
-  }));
-};
-
-const KO_PASSAGES: NormalizedPassage[] = [
-  ...collectPassages(classicsMix, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(confucius, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(easternMis01, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(easternMis02, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(easternMis03, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(laozi, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(mencius, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(zhuangzi, { category: 'philosophy', philosophyKind: 'eastern' }),
-  ...collectPassages(epictetus, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(erichFromm, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(marcusAurelius, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(nietzsche01, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(nietzsche02, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(nietzsche03, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(plato, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(sartreFreud, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(seneca, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(westernMisc01, { category: 'philosophy', philosophyKind: 'western' }),
-  ...collectPassages(buddhismDhammapada, { category: 'religion', religionKind: 'buddhism' }),
-  ...collectPassages(buddhismDiamond, { category: 'religion', religionKind: 'buddhism' }),
-  ...collectPassages(buddhismHeart, { category: 'religion', religionKind: 'buddhism' }),
-  ...collectPassages(buddhismMixed, { category: 'religion', religionKind: 'buddhism' }),
-  ...collectPassages(christianNtPart1, { category: 'religion', religionKind: 'christianity' }),
-  ...collectPassages(christianOtPart1, { category: 'religion', religionKind: 'christianity' }),
-  ...collectPassages(christianOtPart2, { category: 'religion', religionKind: 'christianity' }),
-  ...collectPassages(quranPart1, { category: 'religion', religionKind: 'islam' }),
-  ...collectPassages(quranPart2, { category: 'religion', religionKind: 'islam' }),
-  ...collectPassages(quranPart3, { category: 'religion', religionKind: 'islam' }),
-  ...collectPassages(quranPart4, { category: 'religion', religionKind: 'islam' }),
+const PASSAGE_SOURCES: LibraryEntry[] = [
+  { loader: () => easternLaoziKo as PassageFile, category: 'eastern_philosophy', language: 'ko' },
 ];
 
-const pickRandom = <T,>(list: T[]): T | undefined => {
-  if (!list.length) {
-    return undefined;
-  }
-  const index = Math.floor(Math.random() * list.length);
-  return list[index];
+const LIBRARY_CACHE: LibraryCache = {};
+
+const EMPTY_RESULT: UsePassageResult = {
+  lines: [],
+  sourceText: '',
 };
 
-const sanitizeReference = (book: string, reference: string): string => {
-  if (!book || !reference) {
-    return reference;
-  }
-  const normalizedBook = book.trim();
-  const normalizedRef = reference.trim();
-  if (normalizedRef.toLowerCase().startsWith(normalizedBook.toLowerCase())) {
-    return normalizedRef.slice(normalizedBook.length).trimStart();
-  }
-  return normalizedRef;
-};
-
-const formatSource = (passage: NormalizedPassage): string => {
-  const meta = passage.meta ?? {};
-  if (passage.category === 'religion') {
-    const religionLabel = passage.religionKind
-      ? RELIGION_DISPLAY[passage.religionKind]
-      : meta.sourceDisplay || meta.religion || '';
-    const book = meta.bookDisplay || meta.book || meta.sourceDisplay || meta.source || '';
-    const reference = meta.referenceDisplay || meta.reference || '';
-    const refinedReference = sanitizeReference(book, reference);
-
-    let text = religionLabel || '';
-    if (book) {
-      if (refinedReference) {
-        text = text ? `${text}, ${book} ${refinedReference}` : `${book} ${refinedReference}`;
-      } else {
-        text = text ? `${text}, ${book}` : book;
-      }
-    } else if (refinedReference) {
-      text = text ? `${text}, ${refinedReference}` : refinedReference;
-    }
-
-    return text.trim();
-  }
-
-  const author = meta.authorDisplay || meta.author || '';
-  const book = meta.bookDisplay || meta.book || meta.sourceDisplay || meta.source || '';
-  const detail =
-    meta.chapterDisplay ||
-    meta.sectionDisplay ||
-    meta.partDisplay ||
-    meta.chapter ||
-    meta.section ||
-    meta.part ||
-    '';
-
-  let text = '';
-  if (author) {
-    text = author;
-    if (book && book !== author) {
-      text += `, ${book}`;
-    }
-  } else if (book) {
-    text = book;
-  }
-  if (detail) {
-    text += text ? `〈${detail}〉` : `〈${detail}〉`;
-  }
-  return text.trim();
-};
-
-const filterPassages = (
-  passages: NormalizedPassage[],
-  options: UsePassageOptions,
-): NormalizedPassage[] => {
-  const { emotion, philosophy, religion } = options;
-  const wantsPhilosophy = philosophy.length > 0;
-  const wantsReligion = religion.length > 0;
-  const philosophySet = new Set(philosophy);
-  const religionSet = new Set(religion);
-
-  return passages.filter((passage) => {
-    if (emotion !== 'none' && passage.emotionCore !== emotion) {
-      return false;
-    }
-
-    if (!wantsPhilosophy && !wantsReligion) {
-      return true;
-    }
-
-    if (wantsPhilosophy && wantsReligion) {
-      const matchesPhilosophy =
-        passage.category === 'philosophy' &&
-        !!passage.philosophyKind &&
-        philosophySet.has(passage.philosophyKind);
-      const matchesReligion =
-        passage.category === 'religion' &&
-        !!passage.religionKind &&
-        religionSet.has(passage.religionKind);
-      return matchesPhilosophy || matchesReligion;
-    }
-
-    if (wantsPhilosophy) {
-      return (
-        passage.category === 'philosophy' &&
-        !!passage.philosophyKind &&
-        philosophySet.has(passage.philosophyKind)
-      );
-    }
-
-    return (
-      passage.category === 'religion' &&
-      !!passage.religionKind &&
-      religionSet.has(passage.religionKind)
-    );
-  });
-};
-
-export const usePassage = ({ language, emotion, philosophy, religion, refreshKey }: UsePassageOptions): PassageResult => {
+export function usePassage(
+  selections: MenuSelectionState,
+  refreshKey: number,
+): UsePassageResult {
   return useMemo(() => {
-    if (language !== 'ko') {
-      return FALLBACK_RESULT;
+    const safeSelections = normalizeSelections(selections);
+    const library = getLibraryForLanguage(safeSelections.language);
+
+    if (!library.length) {
+      return EMPTY_RESULT;
     }
 
-    const filtered = filterPassages(KO_PASSAGES, { language, emotion, philosophy, religion, refreshKey });
-    const sourcePool = filtered.length > 0 ? filtered : KO_PASSAGES;
-    const chosen = pickRandom(sourcePool);
+    const filtered = filterPassages(library, safeSelections);
+    const pool = filtered.length ? filtered : library;
+    const picked = pickPassage(pool, refreshKey);
 
-    if (!chosen) {
-      return FALLBACK_RESULT;
+    if (!picked) {
+      return EMPTY_RESULT;
     }
 
     return {
-      lines: chosen.lines,
-      sourceText: formatSource(chosen),
+      lines: picked.lines,
+      sourceText: buildSourceText(picked.meta),
     };
-  }, [language, emotion, philosophy, religion, refreshKey]);
-};
+  }, [selections, refreshKey]);
+}
+
+function getLibraryForLanguage(language: LanguageOption): PassageRecord[] {
+  if (LIBRARY_CACHE[language]) {
+    return LIBRARY_CACHE[language] as PassageRecord[];
+  }
+
+  const entries = PASSAGE_SOURCES.filter((entry) => entry.language === language);
+  const library = buildPassageLibrary(entries);
+  LIBRARY_CACHE[language] = library;
+  return library;
+}
+
+function buildPassageLibrary(entries: LibraryEntry[]): PassageRecord[] {
+  const records: PassageRecord[] = [];
+
+  entries.forEach(({ loader, category, language }) => {
+    const file = loader();
+
+    if (!file || !Array.isArray(file.passages)) {
+      return;
+    }
+
+    file.passages.forEach((raw) => {
+      if (!raw || typeof raw.id !== 'string') {
+        return;
+      }
+
+      const lines = normalizeLines(raw.lines);
+      if (!lines.length) {
+        return;
+      }
+
+      records.push({
+        id: raw.id,
+        lines,
+        category,
+        language,
+        emotionCore: isEmotionKey(raw.emotionCore) ? raw.emotionCore : undefined,
+        emotionExtended: normalizeEmotionExtended(raw.emotionExtended),
+        meta: raw.meta,
+      });
+    });
+  });
+
+  return records;
+}
+
+function isEmotionKey(value: unknown): value is EmotionKey {
+  return (
+    value === 'unknown' ||
+    value === 'joy' ||
+    value === 'hope' ||
+    value === 'anxiety' ||
+    value === 'depression' ||
+    value === 'sadness'
+  );
+}
+
+function normalizeSelections(input: MenuSelectionState | null | undefined): MenuSelectionState {
+  return {
+    emotion: isEmotionKey(input?.emotion) ? input.emotion : 'unknown',
+    selectedCategories: Array.isArray(input?.selectedCategories)
+      ? input.selectedCategories.filter(Boolean)
+      : [],
+    language: input?.language ?? 'ko',
+    font: input?.font ?? 'basic',
+    size: input?.size ?? 'large',
+    background: input?.background ?? 'auto',
+  };
+}
+
+function normalizeEmotionExtended(value: unknown): EmotionKey[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isEmotionKey);
+}
+
+function normalizeLines(lines: unknown): string[] {
+  if (!Array.isArray(lines)) {
+    return [];
+  }
+
+  return lines
+    .filter((line): line is string => typeof line === 'string')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function buildSourceText(meta: PassageMeta | undefined): string {
+  if (!meta) {
+    return '';
+  }
+
+  const parts: string[] = [];
+
+  const author = typeof meta.author === 'string' ? meta.author.trim() : '';
+  const book = typeof meta.book === 'string' ? meta.book.trim() : '';
+  const chapter =
+    typeof meta.chapter === 'string' || typeof meta.chapter === 'number'
+      ? String(meta.chapter).trim()
+      : '';
+  const verse =
+    typeof meta.verse === 'string' || typeof meta.verse === 'number'
+      ? String(meta.verse).trim()
+      : '';
+  const tradition = typeof meta.tradition === 'string' ? meta.tradition.trim() : '';
+  const source = typeof meta.source === 'string' ? meta.source.trim() : '';
+  const reference = typeof meta.reference === 'string' ? meta.reference.trim() : '';
+
+  if (author) parts.push(author);
+  if (book) parts.push(book);
+
+  if (chapter && verse) {
+    parts.push(`${chapter}:${verse}`);
+  } else if (chapter) {
+    parts.push(chapter);
+  } else if (verse) {
+    parts.push(verse);
+  }
+
+  if (!author && tradition) {
+    parts.push(tradition);
+  }
+
+  if (!book && source) {
+    parts.push(source);
+  }
+
+  if (reference) {
+    parts.push(reference);
+  }
+
+  return parts.filter(Boolean).join(' · ');
+}
+
+function filterPassages(
+  passages: PassageRecord[],
+  selections: MenuSelectionState,
+): PassageRecord[] {
+  if (!passages.length) {
+    return [];
+  }
+
+  const selectedCategories = Array.isArray(selections.selectedCategories)
+    ? selections.selectedCategories
+    : [];
+
+  return passages.filter((passage) => {
+    const categoryMatch =
+      !selectedCategories.length || selectedCategories.includes(passage.category);
+
+    const languageMatch = passage.language === selections.language;
+
+    const emotionMatch =
+      selections.emotion === 'unknown' ||
+      passage.emotionCore === selections.emotion ||
+      passage.emotionExtended?.includes(selections.emotion);
+
+    return categoryMatch && languageMatch && emotionMatch;
+  });
+}
+
+function pickPassage(passages: PassageRecord[], refreshKey: number): PassageRecord | null {
+  if (!passages.length) {
+    return null;
+  }
+
+  const index = Math.abs(refreshKey) % passages.length;
+  return passages[index] ?? passages[0] ?? null;
+}
+

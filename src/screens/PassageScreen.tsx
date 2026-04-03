@@ -1,17 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AdaptiveBackground } from '../components/AdaptiveBackground';
 import { AnimatedPassageText } from '../components/AnimatedPassageText';
 import { PassageSourceText, buildSourceTypography, FontVariant } from '../components/PassageSourceText';
 import { BottomDotButton } from '../components/BottomDotButton';
-import { MenuSlideSheet, MenuSelections } from '../components/MenuSlideSheet';
+import { MenuSlideSheet } from '../components/MenuSlideSheet';
 import { usePassage } from '../hooks/usePassage';
 import { useOrientation } from '../hooks/useOrientation';
+import type { MenuSelectionState } from '../types/menu';
+import { INITIAL_MENU_SELECTIONS } from '../types/menu';
 
 const TEXT_DELAY_MS = 1400;
 const BASE_FONT_SIZE = 20;
 const SOURCE_CHARS_PER_LINE = 14;
+const ALLOWED_LANGUAGES: Array<MenuSelectionState['language']> = ['ko', 'en'];
 
 const FONT_FAMILY_BY_VARIANT: Record<FontVariant, string> = {
   default: 'NotoSansKR-Regular',
@@ -19,11 +22,11 @@ const FONT_FAMILY_BY_VARIANT: Record<FontVariant, string> = {
   handwriting: 'NanumPenScript-Regular',
 };
 
-const getFontVariant = (font: MenuSelections['font']): FontVariant => {
+const getFontVariant = (font: MenuSelectionState['font']): FontVariant => {
   if (font === 'soft') {
     return 'soft';
   }
-  if (font === 'handwriting') {
+  if (font === 'script') {
     return 'handwriting';
   }
   return 'default';
@@ -130,29 +133,21 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   const orientation = useOrientation();
   const isLandscape = orientation === 'landscape';
 
-  const [menuSelections, setMenuSelections] = useState<MenuSelections>({
-    language: 'ko',
-    emotion: 'none',
-    philosophy: [],
-    religion: [],
-    font: 'default',
-    backgroundMode: 'auto',
-  });
+  const [menuSelections, setMenuSelections] = useState<MenuSelectionState>(INITIAL_MENU_SELECTIONS);
   const [isMenuVisible, setMenuVisible] = useState(initialMenuVisible);
   const [isBackgroundReady, setBackgroundReady] = useState(false);
   const [isTextReady, setTextReady] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showSource, setShowSource] = useState(false);
 
-  const fontVariant = useMemo(() => getFontVariant(menuSelections.font), [menuSelections.font]);
+  const fontVariant = useMemo(
+    () => getFontVariant(menuSelections.font),
+    [menuSelections.font],
+  );
 
-  const { lines, sourceText } = usePassage({
-    language: menuSelections.language,
-    emotion: menuSelections.emotion,
-    philosophy: menuSelections.philosophy,
-    religion: menuSelections.religion,
-    refreshKey,
-  });
+  const passageResult = usePassage(menuSelections, refreshKey);
+  const lines = Array.isArray(passageResult.lines) ? passageResult.lines : [];
+  const sourceText = typeof passageResult.sourceText === 'string' ? passageResult.sourceText : '';
 
   const combinedText = useMemo(() => lines.join(' ').trim(), [lines]);
   const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,11 +169,17 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
     setMenuVisible(false);
   }, []);
 
-  const handleApply = useCallback((options: MenuSelections) => {
+  const handleApply = useCallback((next: MenuSelectionState) => {
+    if (!next.selectedCategories.length) {
+      return;
+    }
+    if (!ALLOWED_LANGUAGES.includes(next.language)) {
+      return;
+    }
+
     setMenuSelections({
-      ...options,
-      philosophy: [...options.philosophy],
-      religion: [...options.religion],
+      ...next,
+      selectedCategories: [...next.selectedCategories],
     });
     setRefreshKey((prev) => prev + 1);
     setTextReady(false);
@@ -217,7 +218,7 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
     setShowSource(false);
   }, [orientation]);
 
-  const displayedText = isTextReady ? combinedText : '';
+  const displayedText = isTextReady && lines.length ? combinedText : '';
 
   return (
     <AdaptiveBackground onReady={handleBackgroundReady}>
@@ -260,7 +261,13 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
         visible={isMenuVisible}
         onClose={handleCloseMenu}
         onApply={handleApply}
+        state={menuSelections}
+        onChange={setMenuSelections}
       />
     </AdaptiveBackground>
   );
 };
+
+
+
+
