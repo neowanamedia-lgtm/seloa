@@ -59,6 +59,7 @@ const createVariantTypography = (
   overrides: { lineHeight?: number; letterSpacing?: number },
 ): TextStyle => {
   const fontSize = variant === 'handwriting' ? baseSize + 2 : baseSize;
+
   return {
     fontFamily: FONT_FAMILY_BY_VARIANT[variant],
     fontSize,
@@ -77,22 +78,49 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
 }) => {
   const safeLine = typeof line === 'string' ? line : '';
   const normalizedLine = safeLine.trim();
-  const words = useMemo(() => (normalizedLine.length > 0 ? normalizedLine.split(/\s+/) : []), [normalizedLine]);
-  const animatedValues = useMemo(() => words.map(() => new Animated.Value(0)), [words]);
-  const hasAnimatedRef = useRef(false);
+
+  const words = useMemo(
+    () => (normalizedLine.length > 0 ? normalizedLine.split(/\s+/) : []),
+    [normalizedLine],
+  );
+
+  const animatedValues = useMemo(
+    () => words.map(() => new Animated.Value(0)),
+    [words],
+  );
+
+  const hasCompletedRef = useRef(false);
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
+  const completeOnce = () => {
+    if (hasCompletedRef.current) {
+      return;
+    }
+    hasCompletedRef.current = true;
+    onComplete?.();
+  };
+
   useEffect(() => {
-    hasAnimatedRef.current = false;
+    hasCompletedRef.current = false;
+    animationRef.current?.stop();
+    animationRef.current = null;
     animatedValues.forEach((value) => value.setValue(0));
   }, [normalizedLine, animatedValues, isReady, variant]);
 
   useEffect(() => {
-    if (!isReady || hasAnimatedRef.current || words.length === 0) {
-      if (isReady && words.length === 0 && normalizedLine.length > 0 && !hasAnimatedRef.current) {
-        hasAnimatedRef.current = true;
-        onComplete?.();
-      }
+    if (!isReady) {
+      return;
+    }
+
+    if (!normalizedLine.length) {
+      return;
+    }
+
+    if (words.length === 0) {
+      return;
+    }
+
+    if (hasCompletedRef.current) {
       return;
     }
 
@@ -106,34 +134,49 @@ export const AnimatedPassageText: React.FC<AnimatedPassageTextProps> = ({
 
     const sequence = Animated.stagger(WORD_STAGGER, animations);
     animationRef.current = sequence;
-    sequence.start(() => {
-      hasAnimatedRef.current = true;
+
+    sequence.start(({ finished }) => {
       animationRef.current = null;
-      onComplete?.();
+
+      if (!finished) {
+        return;
+      }
+
+      completeOnce();
     });
 
     return () => {
       animationRef.current?.stop();
+      animationRef.current = null;
     };
-  }, [animatedValues, isReady, words.length, normalizedLine.length, onComplete]);
+  }, [animatedValues, isReady, normalizedLine, words.length]);
 
   if (!normalizedLine.length) {
     return null;
   }
 
   const flattenedStyle = StyleSheet.flatten(style) ?? {};
-  const baseSize = typeof flattenedStyle.fontSize === 'number' ? flattenedStyle.fontSize : styles.word.fontSize;
+  const baseSize =
+    typeof flattenedStyle.fontSize === 'number'
+      ? flattenedStyle.fontSize
+      : styles.word.fontSize;
 
   const variantTypography = createVariantTypography(variant, baseSize, {
-    lineHeight: typeof flattenedStyle.lineHeight === 'number' ? flattenedStyle.lineHeight : undefined,
-    letterSpacing: typeof flattenedStyle.letterSpacing === 'number' ? flattenedStyle.letterSpacing : undefined,
+    lineHeight:
+      typeof flattenedStyle.lineHeight === 'number'
+        ? flattenedStyle.lineHeight
+        : undefined,
+    letterSpacing:
+      typeof flattenedStyle.letterSpacing === 'number'
+        ? flattenedStyle.letterSpacing
+        : undefined,
   });
 
   return (
     <View style={[styles.lineContainer, containerStyle]}>
       {words.map((word, index) => (
         <Animated.Text
-          key={`word-${index}`}
+          key={`word-${index}-${word}`}
           style={[
             styles.word,
             style,

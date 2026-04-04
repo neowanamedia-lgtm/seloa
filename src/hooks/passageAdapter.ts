@@ -39,6 +39,21 @@ type AdaptOptions = {
   language: LanguageOption;
 };
 
+const AUTHOR_KO_MAP: Record<string, string> = {
+  Epictetus: '에픽테토스',
+  'Erich Fromm': '에리히 프롬',
+  ErichFromm: '에리히 프롬',
+  'Marcus Aurelius': '마르쿠스 아우렐리우스',
+  MarcusAurelius: '마르쿠스 아우렐리우스',
+  Nietzsche: '니체',
+  Plato: '플라톤',
+  Seneca: '세네카',
+  Freud: '프로이트',
+  Sartre: '사르트르',
+  Socrates: '소크라테스',
+  Aristotle: '아리스토텔레스',
+};
+
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -179,7 +194,7 @@ export function adaptPassageFile(input: unknown, options: AdaptOptions): Normali
     .map((passage) => ({
       id: passage.id,
       lines: passage.lines,
-      sourceText: buildSourceText(passage.meta),
+      sourceText: buildSourceText(passage.meta, options),
       emotionCore: passage.emotionCore ?? 'unknown',
       emotionExtended: passage.emotionExtended ?? [],
       tags: {
@@ -190,67 +205,136 @@ export function adaptPassageFile(input: unknown, options: AdaptOptions): Normali
     }));
 }
 
-export function buildSourceText(meta: PassageMeta | undefined): string {
+function normalizeSpace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function formatParenLabel(label: string, content: string): string {
+  const safeLabel = normalizeSpace(label);
+  const safeContent = normalizeSpace(content);
+
+  if (!safeLabel && !safeContent) {
+    return '';
+  }
+
+  if (!safeContent) {
+    return safeLabel;
+  }
+
+  if (!safeLabel) {
+    return safeContent;
+  }
+
+  return `${safeLabel} (${safeContent})`;
+}
+
+function removeLeadingDuplicate(value: string, duplicate: string): string {
+  const safeValue = normalizeSpace(value);
+  const safeDuplicate = normalizeSpace(duplicate);
+
+  if (!safeValue || !safeDuplicate) {
+    return safeValue;
+  }
+
+  if (safeValue === safeDuplicate) {
+    return '';
+  }
+
+  if (safeValue.startsWith(`${safeDuplicate} `)) {
+    return safeValue.slice(safeDuplicate.length).trim();
+  }
+
+  return safeValue;
+}
+
+function getKoreanAuthorName(author: string): string {
+  const safeAuthor = normalizeSpace(author);
+  return AUTHOR_KO_MAP[safeAuthor] || safeAuthor;
+}
+
+function joinBookAndChapter(bookDisplay: string, chapterDisplay: string): string {
+  const safeBook = normalizeSpace(bookDisplay);
+  const safeChapter = normalizeSpace(chapterDisplay);
+
+  if (!safeBook && !safeChapter) {
+    return '';
+  }
+
+  if (!safeBook) {
+    return safeChapter;
+  }
+
+  if (!safeChapter) {
+    return safeBook;
+  }
+
+  const chapterWithoutBook = removeLeadingDuplicate(safeChapter, safeBook);
+  return chapterWithoutBook ? `${safeBook} ${chapterWithoutBook}` : safeBook;
+}
+
+export function buildSourceText(
+  meta: PassageMeta | undefined,
+  options?: Pick<AdaptOptions, 'category' | 'domain'>,
+): string {
   if (!meta) {
     return '';
   }
 
-  const displayBook =
-    typeof meta.bookDisplay === 'string' ? meta.bookDisplay.trim() : '';
-  const displayChapter =
-    typeof meta.chapterDisplay === 'string' ? meta.chapterDisplay.trim() : '';
-  const displaySource =
-    typeof meta.sourceDisplay === 'string' ? meta.sourceDisplay.trim() : '';
-  const displayReference =
-    typeof meta.referenceDisplay === 'string' ? meta.referenceDisplay.trim() : '';
+  const category = options?.category ?? '';
+  const domain = options?.domain ?? '';
 
   const author = typeof meta.author === 'string' ? meta.author.trim() : '';
   const book = typeof meta.book === 'string' ? meta.book.trim() : '';
-  const chapter =
-    typeof meta.chapter === 'string' || typeof meta.chapter === 'number'
-      ? String(meta.chapter).trim()
-      : '';
-  const verse =
-    typeof meta.verse === 'string' || typeof meta.verse === 'number'
-      ? String(meta.verse).trim()
-      : '';
-  const tradition = typeof meta.tradition === 'string' ? meta.tradition.trim() : '';
   const source = typeof meta.source === 'string' ? meta.source.trim() : '';
   const reference = typeof meta.reference === 'string' ? meta.reference.trim() : '';
 
-  const parts: string[] = [];
+  const bookDisplay =
+    typeof meta.bookDisplay === 'string' ? meta.bookDisplay.trim() : '';
+  const chapterDisplay =
+    typeof meta.chapterDisplay === 'string' ? meta.chapterDisplay.trim() : '';
+  const sourceDisplay =
+    typeof meta.sourceDisplay === 'string' ? meta.sourceDisplay.trim() : '';
+  const referenceDisplay =
+    typeof meta.referenceDisplay === 'string' ? meta.referenceDisplay.trim() : '';
 
-  if (displaySource) {
-    parts.push(displaySource);
-  } else if (tradition) {
-    parts.push(tradition);
+  const displayBook = bookDisplay || book || sourceDisplay || source;
+  const displayChapter = chapterDisplay || referenceDisplay || reference;
+  const displayReference = referenceDisplay || chapterDisplay || reference;
+
+  if (domain === 'philosophy' && category === 'eastern_philosophy') {
+    return formatParenLabel(displayBook, displayChapter);
   }
 
-  if (displayBook) {
-    parts.push(displayBook);
-  } else if (book) {
-    parts.push(book);
-  } else if (source) {
-    parts.push(source);
+  if (domain === 'philosophy' && category === 'western_philosophy') {
+    const koreanAuthor = getKoreanAuthorName(author);
+    return formatParenLabel(koreanAuthor, displayBook);
   }
 
-  if (displayChapter) {
-    parts.push(displayChapter);
-  } else if (displayReference) {
-    parts.push(displayReference);
-  } else if (chapter && verse) {
-    parts.push(`${chapter}:${verse}`);
-  } else if (chapter) {
-    parts.push(chapter);
-  } else if (verse) {
-    parts.push(verse);
-  } else if (reference) {
-    parts.push(reference);
+  if (domain === 'religion' && category === 'christianity') {
+    return formatParenLabel('성경', displayReference);
   }
 
-  if (!displayBook && !book && !source && author) {
-    parts.unshift(author);
+  if (domain === 'religion' && category === 'buddhism') {
+    const buddhistInner = joinBookAndChapter(displayBook, displayChapter);
+    return formatParenLabel('불교', buddhistInner);
   }
 
-  return parts.filter(Boolean).join(' · ');
+  if (domain === 'religion' && category === 'islam') {
+    return formatParenLabel('코란', displayReference);
+  }
+
+  if (domain === 'philosophy') {
+    const koreanAuthor = getKoreanAuthorName(author);
+    return formatParenLabel(koreanAuthor, displayBook);
+  }
+
+  if (domain === 'religion') {
+    return formatParenLabel(sourceDisplay || source, displayReference);
+  }
+
+  if (author && displayBook) {
+    return formatParenLabel(author, displayBook);
+  }
+
+  return formatParenLabel(displayBook || sourceDisplay || source, displayReference || displayChapter);
 }

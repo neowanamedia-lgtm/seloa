@@ -3,7 +3,6 @@ import {
   Animated,
   ImageBackground,
   StyleSheet,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -42,16 +41,22 @@ export const AdaptiveBackground: React.FC<AdaptiveBackgroundProps> = ({
   overlayColor,
   blurRadius = 0,
 }) => {
-  const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
+  const [selectedBackground, setSelectedBackground] = useState<BackgroundConfig>(() =>
+    getRandomBackground(),
+  );
 
-  const [selectedBackground] = useState<BackgroundConfig>(() => getRandomBackground());
   const opacity = useRef(new Animated.Value(0)).current;
   const hasSignaledRef = useRef(false);
 
+  // 🔥 핵심: 매 마운트마다 랜덤 재선택
+  useEffect(() => {
+    setSelectedBackground(getRandomBackground());
+  }, []);
+
+  // 🔥 핵심: portrait만 사용
   const source = useMemo(
-    () => (isLandscape ? selectedBackground.landscape : selectedBackground.portrait),
-    [isLandscape, selectedBackground],
+    () => selectedBackground.portrait,
+    [selectedBackground],
   );
 
   useEffect(() => {
