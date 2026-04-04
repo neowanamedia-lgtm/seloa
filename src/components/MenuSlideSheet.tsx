@@ -1,5 +1,12 @@
 ﻿import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import type {
   BackgroundOption,
@@ -21,53 +28,61 @@ type MenuSlideSheetProps = {
 };
 
 const EMOTION_OPTIONS: Array<{ key: EmotionKey; label: string }> = [
-  { key: 'unknown', label: 'Balance' },
-  { key: 'joy', label: 'Joy' },
-  { key: 'hope', label: 'Hope' },
-  { key: 'anxiety', label: 'Anxiety' },
-  { key: 'depression', label: 'Depth' },
-  { key: 'sadness', label: 'Sadness' },
+  { key: 'unknown', label: '모름' },
+  { key: 'joy', label: '기쁨' },
+  { key: 'hope', label: '희망' },
+  { key: 'anxiety', label: '불안' },
+  { key: 'depression', label: '우울' },
+  { key: 'sadness', label: '슬픔' },
 ];
 
-const CATEGORY_OPTIONS: Array<{ key: ContentCategory; label: string }> = [
-  { key: 'eastern_philosophy', label: 'Eastern Philosophy' },
-  { key: 'western_philosophy', label: 'Western Philosophy' },
-  { key: 'eastern_poetry', label: 'Eastern Poetry' },
-  { key: 'western_poetry', label: 'Western Poetry' },
-  { key: 'eastern_novel', label: 'Eastern Novel' },
-  { key: 'western_novel', label: 'Western Novel' },
-  { key: 'christianity', label: 'Christianity' },
-  { key: 'buddhism', label: 'Buddhism' },
-  { key: 'islam', label: 'Islam' },
+const PHILOSOPHY_OPTIONS: Array<{ key: ContentCategory; label: string }> = [
+  { key: 'eastern_philosophy', label: '동양 철학' },
+  { key: 'western_philosophy', label: '서양 철학' },
+];
+
+const LITERATURE_OPTIONS: Array<{ key: ContentCategory; label: string }> = [
+  { key: 'eastern_poetry', label: '동양시' },
+  { key: 'western_poetry', label: '서양시' },
+  { key: 'eastern_novel', label: '동양 소설' },
+  { key: 'western_novel', label: '서양 소설' },
+];
+
+const RELIGION_OPTIONS: Array<{ key: ContentCategory; label: string }> = [
+  { key: 'christianity', label: '기독교' },
+  { key: 'buddhism', label: '불교' },
+  { key: 'islam', label: '이슬람교' },
 ];
 
 const LANGUAGE_OPTIONS: Array<{ key: LanguageOption; label: string }> = [
-  { key: 'ko', label: 'KO' },
-  { key: 'en', label: 'EN' },
-  { key: 'ja', label: 'JA' },
-  { key: 'zh', label: 'ZH' },
-  { key: 'es', label: 'ES' },
-  { key: 'ar', label: 'AR' },
+  { key: 'ko', label: '한국어' },
+  { key: 'en', label: 'English' },
+  { key: 'ja', label: '日本語' },
+  { key: 'zh', label: '中文' },
+  { key: 'es', label: 'Español' },
+  { key: 'ar', label: 'العربية' },
 ];
 
 const FONT_OPTIONS: Array<{ key: FontOption; label: string }> = [
-  { key: 'basic', label: 'Basic' },
-  { key: 'soft', label: 'Soft' },
-  { key: 'script', label: 'Script' },
+  { key: 'basic', label: '기본 서체' },
+  { key: 'soft', label: '부드럽게' },
+  { key: 'script', label: '필기체' },
 ];
 
 const SIZE_OPTIONS: Array<{ key: SizeOption; label: string }> = [
-  { key: 'large', label: 'Large' },
-  { key: 'small', label: 'Small' },
+  { key: 'large', label: '크게' },
+  { key: 'small', label: '작게' },
 ];
 
 const BACKGROUND_OPTIONS: Array<{ key: BackgroundOption; label: string }> = [
-  { key: 'auto', label: 'Auto' },
-  { key: 'upload', label: 'Upload' },
+  { key: 'auto', label: '자동 배경' },
+  { key: 'upload', label: '불러오기' },
 ];
 
-const ENABLED_LANGUAGES: Array<MenuSelectionState['language']> = ['ko', 'en'];
+const ENABLED_LANGUAGES: Array<MenuSelectionState['language']> = ['ko'];
 const ENABLED_LANGUAGE_SET = new Set<MenuSelectionState['language']>(ENABLED_LANGUAGES);
+
+type ChipMode = 'regular' | 'compact' | 'tight';
 
 export function MenuSlideSheet({
   visible,
@@ -75,8 +90,18 @@ export function MenuSlideSheet({
   onApply,
   state,
   onChange,
-  hasPassages = false,
 }: MenuSlideSheetProps) {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
+  const emotionMode: ChipMode = width < 390 ? 'compact' : 'regular';
+  const philosophyMode: ChipMode = width < 390 ? 'compact' : 'regular';
+  const literatureMode: ChipMode = width < 460 ? 'compact' : 'regular';
+  const religionMode: ChipMode = width < 390 ? 'compact' : 'regular';
+  const languageMode: ChipMode = 'tight';
+  const fontSizeMode: ChipMode = width < 460 ? 'compact' : 'regular';
+  const backgroundMode: ChipMode = 'regular';
+
   const handleEmotion = (emotion: EmotionKey) => {
     onChange((prev) => ({
       ...prev,
@@ -88,14 +113,11 @@ export function MenuSlideSheet({
     onChange((prev) => {
       const exists = prev.selectedCategories.includes(category);
 
-      if (exists && prev.selectedCategories.length === 1) {
-        return prev;
-      }
-
       if (exists) {
+        const nextSelected = prev.selectedCategories.filter((item) => item !== category);
         return {
           ...prev,
-          selectedCategories: prev.selectedCategories.filter((item) => item !== category),
+          selectedCategories: nextSelected.length ? nextSelected : prev.selectedCategories,
         };
       }
 
@@ -139,47 +161,78 @@ export function MenuSlideSheet({
   };
 
   const handleApplyPress = () => {
-    if (!hasPassages && state.selectedCategories.length > 0) {
-      onApply(state);
-      return;
-    }
-
     onApply(state);
   };
 
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.sheet}>
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.section}>
-              {renderSingleSelectChips(EMOTION_OPTIONS, state.emotion, handleEmotion)}
-            </View>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      supportedOrientations={['portrait', 'landscape']}
+      onRequestClose={onClose}
+    >
+      <View style={styles.root}>
+        <View
+          style={[
+            styles.contentOuter,
+            isLandscape ? styles.contentOuterLandscape : styles.contentOuterPortrait,
+          ]}
+          pointerEvents="box-none"
+        >
+          <Pressable
+            style={[
+              styles.contentWrap,
+              isLandscape ? styles.contentWrapLandscape : styles.contentWrapPortrait,
+            ]}
+            onPress={() => {}}
+          >
+            <Text style={styles.brand}>Seloa</Text>
+            <Text style={styles.copy}>지금 나에게 맞는 한 문단의 문장</Text>
 
-            <View style={styles.section}>
-              {renderMultiSelectChips(CATEGORY_OPTIONS, state.selectedCategories, handleCategoryToggle)}
-            </View>
+            <View style={styles.sectionGap} />
 
-            <View style={styles.section}>
-              {renderLanguageChips(LANGUAGE_OPTIONS, state.language, handleLanguage)}
-            </View>
+            <RowBlock>
+              {renderSingleSelectChips(EMOTION_OPTIONS, state.emotion, handleEmotion, emotionMode)}
+            </RowBlock>
 
-            <View style={styles.section}>
-              {renderSingleSelectChips(FONT_OPTIONS, state.font, handleFont)}
-            </View>
+            <RowBlock>
+              {renderMultiSelectChips(PHILOSOPHY_OPTIONS, state.selectedCategories, handleCategoryToggle, philosophyMode)}
+            </RowBlock>
 
-            <View style={styles.section}>
-              {renderSingleSelectChips(SIZE_OPTIONS, state.size, handleSize)}
-            </View>
+            <RowBlock>
+              {renderMultiSelectChips(LITERATURE_OPTIONS, state.selectedCategories, handleCategoryToggle, literatureMode)}
+            </RowBlock>
 
-            <View style={styles.section}>
-              {renderSingleSelectChips(BACKGROUND_OPTIONS, state.background, handleBackground)}
-            </View>
-          </ScrollView>
+            <RowBlock>
+              {renderMultiSelectChips(RELIGION_OPTIONS, state.selectedCategories, handleCategoryToggle, religionMode)}
+            </RowBlock>
 
-          <Pressable style={styles.applyButton} onPress={handleApplyPress}>
-            <Text style={styles.applyButtonText}>Show Passage</Text>
+            <RowBlock>
+              {renderLanguageChips(LANGUAGE_OPTIONS, state.language, handleLanguage, languageMode)}
+            </RowBlock>
+
+            <RowBlock>
+              <View style={styles.inlineRow}>
+                {renderSingleSelectChips(FONT_OPTIONS, state.font, handleFont, fontSizeMode)}
+                <View style={styles.inlineGap} />
+                {renderSingleSelectChips(SIZE_OPTIONS, state.size, handleSize, fontSizeMode)}
+              </View>
+            </RowBlock>
+
+            <RowBlock>
+              {renderSingleSelectChips(BACKGROUND_OPTIONS, state.background, handleBackground, backgroundMode)}
+            </RowBlock>
+
+            <View style={styles.applyGap} />
+
+            <View style={styles.applyWrap}>
+              <Pressable style={styles.applyButton} onPress={handleApplyPress}>
+                <Text style={styles.applyButtonText}>문장 보기</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -187,24 +240,46 @@ export function MenuSlideSheet({
   );
 }
 
+function RowBlock({ children }: { children: React.ReactNode }) {
+  return <View style={styles.rowBlock}>{children}</View>;
+}
+
 function renderSingleSelectChips<T extends string>(
   options: Array<{ key: T; label: string }>,
   selected: T,
   onPress: (value: T) => void,
+  mode: ChipMode,
 ) {
   return (
-    <View style={styles.chipRow}>
-      {options.map((option) => (
-        <Pressable
-          key={option.key}
-          style={[styles.chip, selected === option.key && styles.chipSelected]}
-          onPress={() => onPress(option.key)}
-        >
-          <Text style={[styles.chipText, selected === option.key && styles.chipTextSelected]}>
-            {option.label}
-          </Text>
-        </Pressable>
-      ))}
+    <View style={styles.row}>
+      {options.map((option) => {
+        const isSelected = selected === option.key;
+
+        return (
+          <Pressable
+            key={option.key}
+            style={[
+              styles.chip,
+              mode === 'compact' && styles.chipCompact,
+              mode === 'tight' && styles.chipTight,
+              isSelected && styles.chipSelected,
+            ]}
+            onPress={() => onPress(option.key)}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                mode === 'compact' && styles.chipTextCompact,
+                mode === 'tight' && styles.chipTextTight,
+                isSelected && styles.chipTextSelected,
+              ]}
+              numberOfLines={1}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -213,19 +288,33 @@ function renderMultiSelectChips(
   options: Array<{ key: ContentCategory; label: string }>,
   selected: ContentCategory[],
   onToggle: (value: ContentCategory) => void,
+  mode: ChipMode,
 ) {
   return (
-    <View style={[styles.chipRow, styles.wrap]}>
+    <View style={styles.row}>
       {options.map((option) => {
         const isSelected = selected.includes(option.key);
 
         return (
           <Pressable
             key={option.key}
-            style={[styles.chip, isSelected && styles.chipSelected]}
+            style={[
+              styles.chip,
+              mode === 'compact' && styles.chipCompact,
+              mode === 'tight' && styles.chipTight,
+              isSelected && styles.chipSelected,
+            ]}
             onPress={() => onToggle(option.key)}
           >
-            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+            <Text
+              style={[
+                styles.chipText,
+                mode === 'compact' && styles.chipTextCompact,
+                mode === 'tight' && styles.chipTextTight,
+                isSelected && styles.chipTextSelected,
+              ]}
+              numberOfLines={1}
+            >
               {option.label}
             </Text>
           </Pressable>
@@ -239,9 +328,10 @@ function renderLanguageChips(
   options: Array<{ key: LanguageOption; label: string }>,
   selected: LanguageOption,
   onSelect: (value: LanguageOption) => void,
+  mode: ChipMode,
 ) {
   return (
-    <View style={styles.chipRow}>
+    <View style={[styles.row, styles.languageRow]}>
       {options.map((option) => {
         const isSelected = selected === option.key;
         const isDisabled = !ENABLED_LANGUAGE_SET.has(option.key as MenuSelectionState['language']);
@@ -249,16 +339,25 @@ function renderLanguageChips(
         return (
           <Pressable
             key={option.key}
-            style={[styles.chip, isSelected && styles.chipSelected, isDisabled && styles.chipDisabled]}
+            style={[
+              styles.chip,
+              mode === 'compact' && styles.chipCompact,
+              mode === 'tight' && styles.chipTight,
+              isSelected && styles.chipSelected,
+              isDisabled && styles.chipDisabled,
+            ]}
             disabled={isDisabled}
             onPress={() => onSelect(option.key)}
           >
             <Text
               style={[
                 styles.chipText,
+                mode === 'compact' && styles.chipTextCompact,
+                mode === 'tight' && styles.chipTextTight,
                 isSelected && styles.chipTextSelected,
                 isDisabled && styles.chipTextDisabled,
               ]}
+              numberOfLines={1}
             >
               {option.label}
             </Text>
@@ -270,72 +369,141 @@ function renderLanguageChips(
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  root: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(8, 10, 14, 0.66)',
+    backgroundColor: 'transparent',
   },
-  sheet: {
-    backgroundColor: '#05080e',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 24,
-    paddingHorizontal: 20,
+  contentOuter: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  contentOuterPortrait: {
+    paddingTop: 48,
     paddingBottom: 34,
-    gap: 18,
   },
-  content: {
-    paddingBottom: 24,
-    gap: 18,
+  contentOuterLandscape: {
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingHorizontal: 30,
   },
-  section: {
-    gap: 8,
+  contentWrap: {
+    width: '100%',
+    alignSelf: 'center',
   },
-  chipRow: {
+  contentWrapPortrait: {
+    maxWidth: 980,
+    transform: [{ translateY: -28 }],
+  },
+  contentWrapLandscape: {
+    maxWidth: 1320,
+    transform: [{ translateX: 200 }, { translateY: -4 }],
+  },
+  brand: {
+    color: '#ffffff',
+    fontSize: 30,
+    fontWeight: '700',
+    textAlign: 'left',
+    letterSpacing: 0.2,
+    marginBottom: 0,
+  },
+  copy: {
+    color: 'rgba(255,255,255,0.90)',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'left',
+    lineHeight: 20,
+    marginTop: 0,
+  },
+  sectionGap: {
+    height: 14,
+  },
+  rowBlock: {
+    marginBottom: 8,
+  },
+  row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
-  wrap: {
-    justifyContent: 'flex-start',
+  languageRow: {
+    gap: 4,
+  },
+  inlineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  inlineGap: {
+    width: 10,
   },
   chip: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    borderColor: 'rgba(255,255,255,0.40)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 13,
+    paddingVertical: 5,
+  },
+  chipCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  chipTight: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   chipSelected: {
-    backgroundColor: '#4cb8ff',
-    borderColor: '#4cb8ff',
+    backgroundColor: 'rgba(82, 166, 255, 0.72)',
+    borderColor: 'rgba(121, 198, 255, 1)',
   },
   chipDisabled: {
-    opacity: 0.28,
+    opacity: 0.62,
   },
   chipText: {
-    color: 'rgba(255,255,255,0.84)',
+    color: '#f5f8fb',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: -0.1,
+    lineHeight: 18,
+  },
+  chipTextCompact: {
+    fontSize: 13,
+    letterSpacing: -0.2,
+    lineHeight: 17,
+  },
+  chipTextTight: {
+    fontSize: 13,
+    letterSpacing: -0.3,
+    lineHeight: 16,
   },
   chipTextSelected: {
-    color: '#f7fbff',
+    color: '#ffffff',
   },
   chipTextDisabled: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.90)',
   },
-  applyButton: {
-    borderRadius: 18,
-    backgroundColor: '#5fc6ff',
+  applyGap: {
+    height: 14,
+  },
+  applyWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    marginTop: 8,
+  },
+  applyButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.46)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 18,
+    paddingVertical: 7,
   },
   applyButtonText: {
-    color: '#04121c',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+    lineHeight: 18,
   },
 });

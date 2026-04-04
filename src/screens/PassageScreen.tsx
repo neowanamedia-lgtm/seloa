@@ -31,10 +31,11 @@ const SOURCE_CHARS_PER_LINE = 14;
 const ALLOWED_LANGUAGES: Array<MenuSelectionState['language']> = ['ko', 'en'];
 
 const TAP_MAX_DISTANCE = 18;
-const SWIPE_ACTIVATION_DISTANCE = 1;
-const SWIPE_TRIGGER_DISTANCE = 1;
-const SWIPE_DIRECTION_RATIO = 0.5;
-const SWIPE_MAX_VERTICAL_DRIFT = 150;
+const SWIPE_ACTIVATION_DISTANCE = 2;
+const SWIPE_TRIGGER_DISTANCE = 8;
+const SWIPE_DIRECTION_RATIO = 0.4;
+const SWIPE_MAX_VERTICAL_DRIFT = 120;
+const MENU_BACKGROUND_BLUR_RADIUS = 18;
 
 const FONT_FAMILY_BY_VARIANT: Record<FontVariant, string> = {
   default: 'NotoSansKR-Regular',
@@ -171,7 +172,6 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   const [shouldStartNewSelection, setShouldStartNewSelection] = useState(false);
 
   const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const gestureStartRef = useRef({ x: 0, y: 0 });
   const gestureHandledRef = useRef(false);
 
   const fontVariant = useMemo(
@@ -359,10 +359,7 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
           const absDx = Math.abs(gestureState.dx);
           const absDy = Math.abs(gestureState.dy);
 
-          return (
-            absDx >= SWIPE_ACTIVATION_DISTANCE &&
-            absDx >= absDy * SWIPE_DIRECTION_RATIO
-          );
+          return absDx >= SWIPE_ACTIVATION_DISTANCE && absDx >= absDy * SWIPE_DIRECTION_RATIO;
         },
         onMoveShouldSetPanResponderCapture: (_evt, gestureState) => {
           if (!isGestureEnabled) {
@@ -372,17 +369,10 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
           const absDx = Math.abs(gestureState.dx);
           const absDy = Math.abs(gestureState.dy);
 
-          return (
-            absDx >= SWIPE_ACTIVATION_DISTANCE &&
-            absDx >= absDy * SWIPE_DIRECTION_RATIO
-          );
+          return absDx >= SWIPE_ACTIVATION_DISTANCE && absDx >= absDy * SWIPE_DIRECTION_RATIO;
         },
-        onPanResponderGrant: (evt) => {
+        onPanResponderGrant: () => {
           gestureHandledRef.current = false;
-          gestureStartRef.current = {
-            x: evt.nativeEvent.pageX,
-            y: evt.nativeEvent.pageY,
-          };
         },
         onPanResponderTerminationRequest: () => true,
         onPanResponderRelease: (_evt, gestureState) => {
@@ -431,7 +421,10 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   );
 
   return (
-    <AdaptiveBackground onReady={handleBackgroundReady}>
+    <AdaptiveBackground
+      onReady={handleBackgroundReady}
+      blurRadius={isMenuVisible ? MENU_BACKGROUND_BLUR_RADIUS : 0}
+    >
       <View style={styles.root}>
         <View style={styles.gestureLayer} {...panResponder.panHandlers}>
           <View style={[styles.container, isLandscape && styles.containerLandscape]}>
@@ -476,11 +469,13 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
           />
         </View>
 
-        <BottomDotButton
-          style={styles.bottomButton}
-          onPress={openMenu}
-          accessibilityLabel="Open menu"
-        />
+        {!isMenuVisible ? (
+          <BottomDotButton
+            style={styles.bottomButton}
+            onPress={openMenu}
+            accessibilityLabel="Open menu"
+          />
+        ) : null}
       </View>
     </AdaptiveBackground>
   );
