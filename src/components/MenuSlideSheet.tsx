@@ -17,6 +17,7 @@ type MenuSlideSheetProps = {
   onApply: (state: MenuSelectionState) => void;
   state: MenuSelectionState;
   onChange: React.Dispatch<React.SetStateAction<MenuSelectionState>>;
+  hasPassages?: boolean;
 };
 
 const EMOTION_OPTIONS: Array<{ key: EmotionKey; label: string }> = [
@@ -68,7 +69,14 @@ const BACKGROUND_OPTIONS: Array<{ key: BackgroundOption; label: string }> = [
 const ENABLED_LANGUAGES: Array<MenuSelectionState['language']> = ['ko', 'en'];
 const ENABLED_LANGUAGE_SET = new Set<MenuSelectionState['language']>(ENABLED_LANGUAGES);
 
-export function MenuSlideSheet({ visible, onClose, onApply, state, onChange }: MenuSlideSheetProps) {
+export function MenuSlideSheet({
+  visible,
+  onClose,
+  onApply,
+  state,
+  onChange,
+  hasPassages = false,
+}: MenuSlideSheetProps) {
   const handleEmotion = (emotion: EmotionKey) => {
     onChange((prev) => ({
       ...prev,
@@ -79,15 +87,18 @@ export function MenuSlideSheet({ visible, onClose, onApply, state, onChange }: M
   const handleCategoryToggle = (category: ContentCategory) => {
     onChange((prev) => {
       const exists = prev.selectedCategories.includes(category);
+
       if (exists && prev.selectedCategories.length === 1) {
         return prev;
       }
+
       if (exists) {
         return {
           ...prev,
           selectedCategories: prev.selectedCategories.filter((item) => item !== category),
         };
       }
+
       return {
         ...prev,
         selectedCategories: [...prev.selectedCategories, category],
@@ -99,6 +110,7 @@ export function MenuSlideSheet({ visible, onClose, onApply, state, onChange }: M
     if (!ENABLED_LANGUAGE_SET.has(language)) {
       return;
     }
+
     onChange((prev) => ({
       ...prev,
       language,
@@ -127,8 +139,12 @@ export function MenuSlideSheet({ visible, onClose, onApply, state, onChange }: M
   };
 
   const handleApplyPress = () => {
+    if (!hasPassages && state.selectedCategories.length > 0) {
+      onApply(state);
+      return;
+    }
+
     onApply(state);
-    onClose();
   };
 
   return (
@@ -137,17 +153,31 @@ export function MenuSlideSheet({ visible, onClose, onApply, state, onChange }: M
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.section}>{renderSingleSelectChips(EMOTION_OPTIONS, state.emotion, handleEmotion)}</View>
+            <View style={styles.section}>
+              {renderSingleSelectChips(EMOTION_OPTIONS, state.emotion, handleEmotion)}
+            </View>
+
             <View style={styles.section}>
               {renderMultiSelectChips(CATEGORY_OPTIONS, state.selectedCategories, handleCategoryToggle)}
             </View>
+
             <View style={styles.section}>
               {renderLanguageChips(LANGUAGE_OPTIONS, state.language, handleLanguage)}
             </View>
-            <View style={styles.section}>{renderSingleSelectChips(FONT_OPTIONS, state.font, handleFont)}</View>
-            <View style={styles.section}>{renderSingleSelectChips(SIZE_OPTIONS, state.size, handleSize)}</View>
-            <View style={styles.section}>{renderSingleSelectChips(BACKGROUND_OPTIONS, state.background, handleBackground)}</View>
+
+            <View style={styles.section}>
+              {renderSingleSelectChips(FONT_OPTIONS, state.font, handleFont)}
+            </View>
+
+            <View style={styles.section}>
+              {renderSingleSelectChips(SIZE_OPTIONS, state.size, handleSize)}
+            </View>
+
+            <View style={styles.section}>
+              {renderSingleSelectChips(BACKGROUND_OPTIONS, state.background, handleBackground)}
+            </View>
           </ScrollView>
+
           <Pressable style={styles.applyButton} onPress={handleApplyPress}>
             <Text style={styles.applyButtonText}>Show Passage</Text>
           </Pressable>
@@ -170,7 +200,9 @@ function renderSingleSelectChips<T extends string>(
           style={[styles.chip, selected === option.key && styles.chipSelected]}
           onPress={() => onPress(option.key)}
         >
-          <Text style={[styles.chipText, selected === option.key && styles.chipTextSelected]}>{option.label}</Text>
+          <Text style={[styles.chipText, selected === option.key && styles.chipTextSelected]}>
+            {option.label}
+          </Text>
         </Pressable>
       ))}
     </View>
@@ -186,13 +218,16 @@ function renderMultiSelectChips(
     <View style={[styles.chipRow, styles.wrap]}>
       {options.map((option) => {
         const isSelected = selected.includes(option.key);
+
         return (
           <Pressable
             key={option.key}
             style={[styles.chip, isSelected && styles.chipSelected]}
             onPress={() => onToggle(option.key)}
           >
-            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option.label}</Text>
+            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+              {option.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -210,6 +245,7 @@ function renderLanguageChips(
       {options.map((option) => {
         const isSelected = selected === option.key;
         const isDisabled = !ENABLED_LANGUAGE_SET.has(option.key as MenuSelectionState['language']);
+
         return (
           <Pressable
             key={option.key}

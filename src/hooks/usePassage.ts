@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react';
+﻿import { useCallback, useMemo } from 'react';
 
 import type {
   ContentCategory,
@@ -44,7 +44,8 @@ import islamQuranPart4Ko from '../data/passages/religion/islam/ko/quran_part4.js
 
 import { adaptPassageFile } from './passageAdapter';
 
-type UsePassageResult = {
+export type PassagePickResult = {
+  id: string;
   lines: string[];
   sourceText: string;
 };
@@ -57,26 +58,6 @@ type LibraryEntry = {
 };
 
 type LibraryCache = Partial<Record<LanguageOption, NormalizedPassage[]>>;
-
-type CategoryGroupMap = Record<string, NormalizedPassage[]>;
-
-type RoundRobinState = {
-  history: NormalizedPassage[];
-  nextGroupIndex: number;
-  lastPickedByGroup: Record<string, string | null>;
-  groupKeys: string[];
-  poolSignature: string;
-};
-
-const CATEGORY_PRIORITY = [
-  'eastern_philosophy',
-  'western_philosophy',
-  'christianity',
-  'buddhism',
-  'islam',
-];
-
-const roundRobinStates = new Map<string, RoundRobinState>();
 
 const PASSAGE_SOURCES: LibraryEntry[] = [
   {
@@ -267,57 +248,60 @@ const PASSAGE_SOURCES: LibraryEntry[] = [
 
 const LIBRARY_CACHE: LibraryCache = {};
 
-const EMPTY_RESULT: UsePassageResult = {
-  lines: [],
-  sourceText: '',
-};
+export function usePassage(selections: MenuSelectionState) {
+  const safeSelections = useMemo(
+    () => normalizeSelections(selections),
+    [selections],
+  );
 
-export function usePassage(
-  selections: MenuSelectionState,
-  refreshKey: number,
-): UsePassageResult {
-  return useMemo(() => {
-    const safeSelections = normalizeSelections(selections);
-    const library = getLibraryForLanguage(safeSelections.language);
+  const library = useMemo(
+    () => getLibraryForLanguage(safeSelections.language),
+    [safeSelections.language],
+  );
 
-    if (!library.length) {
-      return EMPTY_RESULT;
-    }
+  const categoryFilters = useMemo(
+    () => deriveCategoryFilters(safeSelections.selectedCategories),
+    [safeSelections.selectedCategories],
+  );
 
-    const categoryFilters = deriveCategoryFilters(safeSelections.selectedCategories);
-    const filtered = filterPassages(library, safeSelections, categoryFilters);
+  const filtered = useMemo(
+    () => filterPassages(library, safeSelections, categoryFilters),
+    [library, safeSelections, categoryFilters],
+  );
 
-    if (!filtered.length) {
-      return EMPTY_RESULT;
-    }
+  const pickNextPassage = useCallback(
+    (excludeIds: string[] = []): PassagePickResult | null => {
+      if (!filtered.length) {
+        return null;
+      }
 
-    const groupMap = buildCategoryGroups(filtered);
-    const activeGroupKeys = deriveActiveGroupKeys(groupMap, categoryFilters);
+      const excludeSet = new Set(excludeIds);
+      const candidatePool =
+        filtered.length > excludeSet.size
+          ? filtered.filter((passage) => !excludeSet.has(passage.id))
+          : filtered;
 
-    if (!activeGroupKeys.length) {
-      return EMPTY_RESULT;
-    }
+      const pool = candidatePool.length ? candidatePool : filtered;
+      const randomIndex = Math.floor(Math.random() * pool.length);
+      const picked = pool[randomIndex];
 
-    const stateKey = buildStateKey(
-      safeSelections.language,
-      safeSelections.emotion,
-      categoryFilters,
-    );
-    const poolSignature = buildPoolSignature(filtered, activeGroupKeys);
-    const state = getOrCreateRoundRobinState(stateKey, poolSignature, activeGroupKeys);
+      if (!picked) {
+        return null;
+      }
 
-    const targetIndex = normalizeRefreshKey(refreshKey);
-    const picked = resolvePassageFromState(state, targetIndex, groupMap);
+      return {
+        id: picked.id,
+        lines: picked.lines,
+        sourceText: picked.sourceText,
+      };
+    },
+    [filtered],
+  );
 
-    if (!picked) {
-      return EMPTY_RESULT;
-    }
-
-    return {
-      lines: picked.lines,
-      sourceText: picked.sourceText,
-    };
-  }, [selections, refreshKey]);
+  return {
+    hasPassages: filtered.length > 0,
+    pickNextPassage,
+  };
 }
 
 function getLibraryForLanguage(language: LanguageOption): NormalizedPassage[] {
@@ -407,153 +391,4 @@ function filterPassages(
       passage.emotionExtended.includes(selections.emotion)
     );
   });
-}
-
-function buildCategoryGroups(passages: NormalizedPassage[]): CategoryGroupMap {
-  return passages.reduce<CategoryGroupMap>((acc, passage) => {
-    const key = passage.tags.category;
-    if (!acc[key]) {
-      acc[key] = [];
-    }
-    acc[key].push(passage);
-    return acc;
-  }, {});
-}
-
-function deriveActiveGroupKeys(
-  groupMap: CategoryGroupMap,
-  preferredOrder: string[],
-): string[] {
-  const availableKeys = Object.keys(groupMap).filter((key) => groupMap[key]?.length);
-  if (!availableKeys.length) {
-    return [];
-  }
-
-  if (preferredOrder.length) {
-    const ordered = preferredOrder.filter(
-      (key, index) => preferredOrder.indexOf(key) === index && groupMap[key]?.length,
-    );
-    const leftovers = availableKeys.filter((key) => !ordered.includes(key)).sort();
-    return ordered.concat(leftovers);
-  }
-
-  const prioritized = CATEGORY_PRIORITY.filter((key) => groupMap[key]?.length);
-  const leftovers = availableKeys.filter((key) => !CATEGORY_PRIORITY.includes(key)).sort();
-  return prioritized.concat(leftovers);
-}
-
-function buildStateKey(
-  language: LanguageOption,
-  emotion: EmotionKey,
-  categories: string[],
-): string {
-  const categoryKey = categories.length ? categories.join('|') : '*';
-  return `${language}::${emotion}::${categoryKey}`;
-}
-
-function buildPoolSignature(passages: NormalizedPassage[], groupKeys: string[]): string {
-  const ids = passages.map((passage) => passage.id).join('|');
-  return `${groupKeys.join('|')}::${ids}`;
-}
-
-function getOrCreateRoundRobinState(
-  key: string,
-  poolSignature: string,
-  groupKeys: string[],
-): RoundRobinState {
-  const existing = roundRobinStates.get(key);
-
-  if (!existing || existing.poolSignature !== poolSignature) {
-    const fresh: RoundRobinState = {
-      history: [],
-      nextGroupIndex: 0,
-      lastPickedByGroup: {},
-      groupKeys: [...groupKeys],
-      poolSignature,
-    };
-    roundRobinStates.set(key, fresh);
-    return fresh;
-  }
-
-  existing.groupKeys = [...groupKeys];
-  existing.poolSignature = poolSignature;
-  return existing;
-}
-
-function resolvePassageFromState(
-  state: RoundRobinState,
-  targetIndex: number,
-  groupMap: CategoryGroupMap,
-): NormalizedPassage | null {
-  if (!state.groupKeys.length) {
-    return null;
-  }
-
-  while (state.history.length <= targetIndex) {
-    const next = generateNextPassage(state, groupMap);
-    if (!next) {
-      break;
-    }
-    state.history.push(next);
-  }
-
-  return state.history[targetIndex] ?? null;
-}
-
-function generateNextPassage(
-  state: RoundRobinState,
-  groupMap: CategoryGroupMap,
-): NormalizedPassage | null {
-  const totalGroups = state.groupKeys.length;
-  if (!totalGroups) {
-    return null;
-  }
-
-  for (let attempt = 0; attempt < totalGroups; attempt += 1) {
-    const groupIndex = state.nextGroupIndex % totalGroups;
-    const groupKey = state.groupKeys[groupIndex];
-    state.nextGroupIndex = (state.nextGroupIndex + 1) % totalGroups;
-
-    const group = groupMap[groupKey];
-    if (!group || !group.length) {
-      continue;
-    }
-
-    const lastPickedId = state.lastPickedByGroup[groupKey] ?? null;
-    const candidate = pickFromGroup(group, lastPickedId);
-    if (!candidate) {
-      continue;
-    }
-
-    state.lastPickedByGroup[groupKey] = candidate.id;
-    return candidate;
-  }
-
-  return null;
-}
-
-function pickFromGroup(
-  group: NormalizedPassage[],
-  lastPickedId: string | null,
-): NormalizedPassage | null {
-  if (!group.length) {
-    return null;
-  }
-
-  if (group.length === 1) {
-    return group[0];
-  }
-
-  const pool = group.filter((passage) => passage.id !== lastPickedId);
-  const candidates = pool.length ? pool : group;
-  const index = Math.floor(Math.random() * candidates.length);
-  return candidates[index] ?? null;
-}
-
-function normalizeRefreshKey(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.floor(value));
 }
