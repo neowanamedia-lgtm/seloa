@@ -6,8 +6,25 @@ import type {
   MenuSelectionState,
 } from '../types/menu';
 
+import easternClassicsMixKo from '../data/passages/eastern/ko/classics_mix.json';
+import easternConfuciusKo from '../data/passages/eastern/ko/confucius.json';
+import easternEasternMis01Ko from '../data/passages/eastern/ko/EASTERN_MIS 01.json';
+import easternEasternMis02Ko from '../data/passages/eastern/ko/EASTERN_MIS 02.json';
+import easternEasternMis03Ko from '../data/passages/eastern/ko/EASTERN_MIS 03.json';
 import easternLaoziKo from '../data/passages/eastern/ko/laozi.json';
+import easternMenciusKo from '../data/passages/eastern/ko/mencius.json';
+import easternZhuangziKo from '../data/passages/eastern/ko/zhuangzi.json';
+
 import westernEpictetusKo from '../data/passages/western/ko/epictetus.json';
+import westernErichFrommKo from '../data/passages/western/ko/Erich Fromm.json';
+import westernMarcusAureliusKo from '../data/passages/western/ko/marcus_aurelius.json';
+import westernNietzsche01Ko from '../data/passages/western/ko/nietzsche_01.json';
+import westernNietzsche02Ko from '../data/passages/western/ko/nietzsche_02.json';
+import westernNietzsche03Ko from '../data/passages/western/ko/nietzsche_03.json';
+import westernPlatoKo from '../data/passages/western/ko/Plato.json';
+import westernSartreFreudKo from '../data/passages/western/ko/sartre_freud.json';
+import westernSenecaKo from '../data/passages/western/ko/seneca.json';
+import westernWesternMisc01Ko from '../data/passages/western/ko/western_misc_01.json';
 
 import buddhismDhammapadaKo from '../data/passages/religion/buddhism/ko/dhammapada.ko.json';
 import buddhismDiamondSutraKo from '../data/passages/religion/buddhism/ko/diamond_sutra.ko.json';
@@ -20,6 +37,9 @@ import christianityBibleOtPart1Ko from '../data/passages/religion/christianity/k
 import christianityBibleOtPart2Ko from '../data/passages/religion/christianity/ko/bible_ot_part2.json';
 
 import islamQuranPart1Ko from '../data/passages/religion/islam/ko/quran_part1.json';
+import islamQuranPart2Ko from '../data/passages/religion/islam/ko/quran_part2.json';
+import islamQuranPart3Ko from '../data/passages/religion/islam/ko/quran_part3.json';
+import islamQuranPart4Ko from '../data/passages/religion/islam/ko/quran_part4.json';
 
 import {
   adaptPassageFile,
@@ -62,12 +82,93 @@ type LibraryCache = Partial<Record<LanguageOption, PassageRecord[]>>;
 
 const PASSAGE_SOURCES: LibraryEntry[] = [
   {
+    loader: () => easternClassicsMixKo as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => easternConfuciusKo as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => easternEasternMis01Ko as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => easternEasternMis02Ko as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => easternEasternMis03Ko as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
     loader: () => easternLaoziKo as PassageFile,
     category: 'eastern_philosophy',
     language: 'ko',
   },
   {
+    loader: () => easternMenciusKo as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => easternZhuangziKo as PassageFile,
+    category: 'eastern_philosophy',
+    language: 'ko',
+  },
+
+  {
     loader: () => westernEpictetusKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernErichFrommKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernMarcusAureliusKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernNietzsche01Ko as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernNietzsche02Ko as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernNietzsche03Ko as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernPlatoKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernSartreFreudKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernSenecaKo as PassageFile,
+    category: 'western_philosophy',
+    language: 'ko',
+  },
+  {
+    loader: () => westernWesternMisc01Ko as PassageFile,
     category: 'western_philosophy',
     language: 'ko',
   },
@@ -116,6 +217,21 @@ const PASSAGE_SOURCES: LibraryEntry[] = [
 
   {
     loader: () => islamQuranPart1Ko as PassageFile,
+    category: 'islam',
+    language: 'ko',
+  },
+  {
+    loader: () => islamQuranPart2Ko as PassageFile,
+    category: 'islam',
+    language: 'ko',
+  },
+  {
+    loader: () => islamQuranPart3Ko as PassageFile,
+    category: 'islam',
+    language: 'ko',
+  },
+  {
+    loader: () => islamQuranPart4Ko as PassageFile,
     category: 'islam',
     language: 'ko',
   },
