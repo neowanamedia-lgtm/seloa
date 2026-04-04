@@ -31,11 +31,11 @@ const SOURCE_CHARS_PER_LINE = 14;
 const ALLOWED_LANGUAGES: Array<MenuSelectionState['language']> = ['ko', 'en'];
 
 const TAP_MAX_DISTANCE = 18;
-const SWIPE_ACTIVATION_DISTANCE = 2;
-const SWIPE_TRIGGER_DISTANCE = 8;
+const SWIPE_ACTIVATION_DISTANCE = 1;
+const SWIPE_TRIGGER_DISTANCE = 2;
 const SWIPE_DIRECTION_RATIO = 0.4;
 const SWIPE_MAX_VERTICAL_DRIFT = 120;
-const MENU_BACKGROUND_BLUR_RADIUS = 18;
+const MENU_BACKGROUND_BLUR_RADIUS = 28;
 
 const FONT_FAMILY_BY_VARIANT: Record<FontVariant, string> = {
   default: 'NotoSansKR-Regular',
