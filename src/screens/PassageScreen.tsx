@@ -36,6 +36,7 @@ const SWIPE_TRIGGER_DISTANCE = 2;
 const SWIPE_DIRECTION_RATIO = 0.4;
 const SWIPE_MAX_VERTICAL_DRIFT = 120;
 const MENU_BACKGROUND_BLUR_RADIUS = 28;
+const DOUBLE_TAP_DELAY_MS = 260;
 
 const FONT_FAMILY_BY_VARIANT: Record<FontVariant, string> = {
   default: 'NotoSansKR-Regular',
@@ -99,6 +100,9 @@ const estimateSourceHeight = (
 
   return resolvedLineHeight * Math.max(1, approximateLines);
 };
+
+const createBackgroundToken = (): string =>
+  `bg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
 const styles = StyleSheet.create({
   root: {
@@ -170,9 +174,14 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   const [showSource, setShowSource] = useState(false);
   const [historyState, setHistoryState] = useState(createInitialPassageHistoryState());
   const [shouldStartNewSelection, setShouldStartNewSelection] = useState(false);
+  const [currentBackgroundToken, setCurrentBackgroundToken] = useState<string>(() => createBackgroundToken());
+  const [menuBackgroundToken, setMenuBackgroundToken] = useState<string>(() => createBackgroundToken());
 
   const readyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapTimestampRef = useRef(0);
   const gestureHandledRef = useRef(false);
+  const passageBackgroundMapRef = useRef<Record<string, string>>({});
 
   const fontVariant = useMemo(
     () => getFontVariant(menuSelections.font),
@@ -215,42 +224,72 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
   const canGoPrev = canGoToPreviousPassage(historyState);
   const isGestureEnabled = !isMenuVisible && isTextReady && showSource && hasCurrent;
 
+  const activeBackgroundKey = isMenuVisible
+    ? `menu-${menuBackgroundToken}`
+    : `passage-${currentBackgroundToken}`;
+
   const resetTextPresentation = useCallback(() => {
     setTextReady(false);
     setShowSource(false);
   }, []);
 
+  const resetVisualPresentation = useCallback(() => {
+    setBackgroundReady(false);
+    setTextReady(false);
+    setShowSource(false);
+  }, []);
+
+  const clearSingleTapTimer = useCallback(() => {
+    if (singleTapTimerRef.current) {
+      clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = null;
+    }
+  }, []);
+
   const openMenu = useCallback(() => {
+    clearSingleTapTimer();
     setDraftSelections({
       ...menuSelections,
       selectedCategories: [...menuSelections.selectedCategories],
     });
+    setMenuBackgroundToken(createBackgroundToken());
     setMenuVisible(true);
-  }, [menuSelections]);
+    resetVisualPresentation();
+  }, [clearSingleTapTimer, menuSelections, resetVisualPresentation]);
 
   const closeMenu = useCallback(() => {
+    clearSingleTapTimer();
     setMenuVisible(false);
-  }, []);
+    resetVisualPresentation();
+  }, [clearSingleTapTimer, resetVisualPresentation]);
 
   const showFirstPassageForCurrentSelection = useCallback(() => {
     const firstPassage = pickNextPassage();
 
     if (!firstPassage) {
       setHistoryState(resetPassageHistory());
-      resetTextPresentation();
+      resetVisualPresentation();
       return;
     }
 
+    const nextBackgroundToken = createBackgroundToken();
+    passageBackgroundMapRef.current[firstPassage.id] = nextBackgroundToken;
+    setCurrentBackgroundToken(nextBackgroundToken);
     setHistoryState(appendPassage(createInitialPassageHistoryState(), firstPassage));
-    resetTextPresentation();
-  }, [pickNextPassage, resetTextPresentation]);
+    resetVisualPresentation();
+  }, [pickNextPassage, resetVisualPresentation]);
 
   const showPreviousPassage = useCallback(() => {
+    clearSingleTapTimer();
     setHistoryState((prev) => moveToPreviousPassage(prev));
-    resetTextPresentation();
-  }, [resetTextPresentation]);
+    resetVisualPresentation();
+  }, [clearSingleTapTimer, resetVisualPresentation]);
 
   const showNextPassage = useCallback(() => {
+    clearSingleTapTimer();
+
+    let nextBackgroundTokenToApply: string | null = null;
+
     setHistoryState((prev) => {
       if (canGoToNextSeenPassage(prev)) {
         return moveToNextSeenPassage(prev);
@@ -263,11 +302,18 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
         return prev;
       }
 
+      nextBackgroundTokenToApply = createBackgroundToken();
+      passageBackgroundMapRef.current[nextPassage.id] = nextBackgroundTokenToApply;
+
       return appendPassage(prev, nextPassage);
     });
 
-    resetTextPresentation();
-  }, [pickNextPassage, resetTextPresentation]);
+    if (nextBackgroundTokenToApply) {
+      setCurrentBackgroundToken(nextBackgroundTokenToApply);
+    }
+
+    resetVisualPresentation();
+  }, [clearSingleTapTimer, pickNextPassage, resetVisualPresentation]);
 
   const handleApply = useCallback((next: MenuSelectionState) => {
     if (!next.selectedCategories.length) {
@@ -283,13 +329,15 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
       selectedCategories: [...next.selectedCategories],
     };
 
+    clearSingleTapTimer();
+    passageBackgroundMapRef.current = {};
     setMenuSelections(normalizedNext);
     setDraftSelections(normalizedNext);
     setHistoryState(resetPassageHistory());
     setShouldStartNewSelection(true);
     setMenuVisible(false);
-    resetTextPresentation();
-  }, [resetTextPresentation]);
+    resetVisualPresentation();
+  }, [clearSingleTapTimer, resetVisualPresentation]);
 
   const handleBackgroundReady = useCallback(() => {
     setBackgroundReady(true);
@@ -336,6 +384,34 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
     setShowSource(false);
   }, [orientation]);
 
+  useEffect(() => {
+    if (!currentPassage?.id) {
+      return;
+    }
+
+    const mappedBackgroundToken = passageBackgroundMapRef.current[currentPassage.id];
+    if (!mappedBackgroundToken) {
+      return;
+    }
+
+    setCurrentBackgroundToken((prev) =>
+      prev === mappedBackgroundToken ? prev : mappedBackgroundToken,
+    );
+  }, [currentPassage?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (readyTimerRef.current) {
+        clearTimeout(readyTimerRef.current);
+        readyTimerRef.current = null;
+      }
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const displayedText = isTextReady && combinedText ? combinedText : '';
 
   const handleAdvanceByTap = useCallback(() => {
@@ -343,8 +419,29 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
       return;
     }
 
-    showNextPassage();
-  }, [isGestureEnabled, showNextPassage]);
+    const now = Date.now();
+    const elapsed = now - lastTapTimestampRef.current;
+
+    if (elapsed <= DOUBLE_TAP_DELAY_MS) {
+      clearSingleTapTimer();
+      lastTapTimestampRef.current = 0;
+
+      if (canGoPrev) {
+        showPreviousPassage();
+      }
+
+      return;
+    }
+
+    lastTapTimestampRef.current = now;
+    clearSingleTapTimer();
+
+    singleTapTimerRef.current = setTimeout(() => {
+      singleTapTimerRef.current = null;
+      lastTapTimestampRef.current = 0;
+      showNextPassage();
+    }, DOUBLE_TAP_DELAY_MS);
+  }, [canGoPrev, clearSingleTapTimer, isGestureEnabled, showNextPassage, showPreviousPassage]);
 
   const panResponder = useMemo(
     () =>
@@ -403,6 +500,8 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
           }
 
           gestureHandledRef.current = true;
+          clearSingleTapTimer();
+          lastTapTimestampRef.current = 0;
 
           if (dx < 0) {
             showNextPassage();
@@ -417,11 +516,19 @@ export const PassageScreen: React.FC<PassageScreenProps> = ({
           gestureHandledRef.current = false;
         },
       }),
-    [canGoPrev, handleAdvanceByTap, isGestureEnabled, showNextPassage, showPreviousPassage],
+    [
+      canGoPrev,
+      clearSingleTapTimer,
+      handleAdvanceByTap,
+      isGestureEnabled,
+      showNextPassage,
+      showPreviousPassage,
+    ],
   );
 
   return (
     <AdaptiveBackground
+      key={activeBackgroundKey}
       onReady={handleBackgroundReady}
       blurRadius={isMenuVisible ? MENU_BACKGROUND_BLUR_RADIUS : 0}
     >
