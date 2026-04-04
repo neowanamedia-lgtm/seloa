@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+﻿import { useMemo } from 'react';
 
 import type {
   ContentCategory,
   LanguageOption,
   MenuSelectionState,
 } from '../types/menu';
+import type { NormalizedPassage } from '../types/NormalizedPassage';
 
 import easternClassicsMixKo from '../data/passages/eastern/ko/classics_mix.json';
 import easternConfuciusKo from '../data/passages/eastern/ko/confucius.json';
@@ -41,31 +42,7 @@ import islamQuranPart2Ko from '../data/passages/religion/islam/ko/quran_part2.js
 import islamQuranPart3Ko from '../data/passages/religion/islam/ko/quran_part3.json';
 import islamQuranPart4Ko from '../data/passages/religion/islam/ko/quran_part4.json';
 
-import {
-  adaptPassageFile,
-  buildSourceText,
-  type PassageFile,
-  type PassageMeta,
-  type RawPassage,
-} from './passageAdapter';
-
-type EmotionKey =
-  | 'unknown'
-  | 'joy'
-  | 'hope'
-  | 'anxiety'
-  | 'depression'
-  | 'sadness';
-
-type PassageRecord = {
-  id: string;
-  lines: string[];
-  category: ContentCategory;
-  language: LanguageOption;
-  emotionCore?: EmotionKey;
-  emotionExtended?: EmotionKey[];
-  meta?: PassageMeta;
-};
+import { adaptPassageFile } from './passageAdapter';
 
 type UsePassageResult = {
   lines: string[];
@@ -74,165 +51,216 @@ type UsePassageResult = {
 
 type LibraryEntry = {
   loader: () => unknown;
-  category: ContentCategory;
+  category: string;
+  domain?: string;
   language: LanguageOption;
 };
 
-type LibraryCache = Partial<Record<LanguageOption, PassageRecord[]>>;
+type LibraryCache = Partial<Record<LanguageOption, NormalizedPassage[]>>;
+
+type CategoryGroupMap = Record<string, NormalizedPassage[]>;
+
+type RoundRobinState = {
+  history: NormalizedPassage[];
+  nextGroupIndex: number;
+  lastPickedByGroup: Record<string, string | null>;
+  groupKeys: string[];
+  poolSignature: string;
+};
+
+const CATEGORY_PRIORITY = [
+  'eastern_philosophy',
+  'western_philosophy',
+  'christianity',
+  'buddhism',
+  'islam',
+];
+
+const roundRobinStates = new Map<string, RoundRobinState>();
 
 const PASSAGE_SOURCES: LibraryEntry[] = [
   {
-    loader: () => easternClassicsMixKo as PassageFile,
+    loader: () => easternClassicsMixKo,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternConfuciusKo as PassageFile,
+    loader: () => easternConfuciusKo,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternEasternMis01Ko as PassageFile,
+    loader: () => easternEasternMis01Ko,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternEasternMis02Ko as PassageFile,
+    loader: () => easternEasternMis02Ko,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternEasternMis03Ko as PassageFile,
+    loader: () => easternEasternMis03Ko,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternLaoziKo as PassageFile,
+    loader: () => easternLaoziKo,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternMenciusKo as PassageFile,
+    loader: () => easternMenciusKo,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => easternZhuangziKo as PassageFile,
+    loader: () => easternZhuangziKo,
     category: 'eastern_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
 
   {
-    loader: () => westernEpictetusKo as PassageFile,
+    loader: () => westernEpictetusKo,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernErichFrommKo as PassageFile,
+    loader: () => westernErichFrommKo,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernMarcusAureliusKo as PassageFile,
+    loader: () => westernMarcusAureliusKo,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernNietzsche01Ko as PassageFile,
+    loader: () => westernNietzsche01Ko,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernNietzsche02Ko as PassageFile,
+    loader: () => westernNietzsche02Ko,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernNietzsche03Ko as PassageFile,
+    loader: () => westernNietzsche03Ko,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernPlatoKo as PassageFile,
+    loader: () => westernPlatoKo,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernSartreFreudKo as PassageFile,
+    loader: () => westernSartreFreudKo,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernSenecaKo as PassageFile,
+    loader: () => westernSenecaKo,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
   {
-    loader: () => westernWesternMisc01Ko as PassageFile,
+    loader: () => westernWesternMisc01Ko,
     category: 'western_philosophy',
+    domain: 'philosophy',
     language: 'ko',
   },
 
   {
-    loader: () => buddhismDhammapadaKo as PassageFile,
+    loader: () => buddhismDhammapadaKo,
     category: 'buddhism',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => buddhismDiamondSutraKo as PassageFile,
+    loader: () => buddhismDiamondSutraKo,
     category: 'buddhism',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => buddhismHeartSutraKo as PassageFile,
+    loader: () => buddhismHeartSutraKo,
     category: 'buddhism',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => buddhismMixedSutrasKo as PassageFile,
+    loader: () => buddhismMixedSutrasKo,
     category: 'buddhism',
+    domain: 'religion',
     language: 'ko',
   },
 
   {
-    loader: () => christianityBibleNtPart1Ko as PassageFile,
+    loader: () => christianityBibleNtPart1Ko,
     category: 'christianity',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => christianityBibleNtPart2Ko as PassageFile,
+    loader: () => christianityBibleNtPart2Ko,
     category: 'christianity',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => christianityBibleOtPart1Ko as PassageFile,
+    loader: () => christianityBibleOtPart1Ko,
     category: 'christianity',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => christianityBibleOtPart2Ko as PassageFile,
+    loader: () => christianityBibleOtPart2Ko,
     category: 'christianity',
+    domain: 'religion',
     language: 'ko',
   },
 
   {
-    loader: () => islamQuranPart1Ko as PassageFile,
+    loader: () => islamQuranPart1Ko,
     category: 'islam',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => islamQuranPart2Ko as PassageFile,
+    loader: () => islamQuranPart2Ko,
     category: 'islam',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => islamQuranPart3Ko as PassageFile,
+    loader: () => islamQuranPart3Ko,
     category: 'islam',
+    domain: 'religion',
     language: 'ko',
   },
   {
-    loader: () => islamQuranPart4Ko as PassageFile,
+    loader: () => islamQuranPart4Ko,
     category: 'islam',
+    domain: 'religion',
     language: 'ko',
   },
 ];
@@ -256,18 +284,30 @@ export function usePassage(
       return EMPTY_RESULT;
     }
 
-    const filtered = filterPassages(library, safeSelections);
-    const hasCategorySelection =
-      Array.isArray(safeSelections.selectedCategories) &&
-      safeSelections.selectedCategories.length > 0;
+    const categoryFilters = deriveCategoryFilters(safeSelections.selectedCategories);
+    const filtered = filterPassages(library, safeSelections, categoryFilters);
 
-    const pool = filtered.length
-      ? filtered
-      : hasCategorySelection
-        ? []
-        : library;
+    if (!filtered.length) {
+      return EMPTY_RESULT;
+    }
 
-    const picked = pickPassage(pool, refreshKey);
+    const groupMap = buildCategoryGroups(filtered);
+    const activeGroupKeys = deriveActiveGroupKeys(groupMap, categoryFilters);
+
+    if (!activeGroupKeys.length) {
+      return EMPTY_RESULT;
+    }
+
+    const stateKey = buildStateKey(
+      safeSelections.language,
+      safeSelections.emotion,
+      categoryFilters,
+    );
+    const poolSignature = buildPoolSignature(filtered, activeGroupKeys);
+    const state = getOrCreateRoundRobinState(stateKey, poolSignature, activeGroupKeys);
+
+    const targetIndex = normalizeRefreshKey(refreshKey);
+    const picked = resolvePassageFromState(state, targetIndex, groupMap);
 
     if (!picked) {
       return EMPTY_RESULT;
@@ -275,14 +315,14 @@ export function usePassage(
 
     return {
       lines: picked.lines,
-      sourceText: buildSourceText(picked.meta),
+      sourceText: picked.sourceText,
     };
   }, [selections, refreshKey]);
 }
 
-function getLibraryForLanguage(language: LanguageOption): PassageRecord[] {
+function getLibraryForLanguage(language: LanguageOption): NormalizedPassage[] {
   if (LIBRARY_CACHE[language]) {
-    return LIBRARY_CACHE[language] as PassageRecord[];
+    return LIBRARY_CACHE[language] as NormalizedPassage[];
   }
 
   const entries = PASSAGE_SOURCES.filter((entry) => entry.language === language);
@@ -291,50 +331,16 @@ function getLibraryForLanguage(language: LanguageOption): PassageRecord[] {
   return library;
 }
 
-function buildPassageLibrary(entries: LibraryEntry[]): PassageRecord[] {
-  const records: PassageRecord[] = [];
+function buildPassageLibrary(entries: LibraryEntry[]): NormalizedPassage[] {
+  const records: NormalizedPassage[] = [];
 
-  entries.forEach(({ loader, category, language }) => {
+  entries.forEach(({ loader, category, domain, language }) => {
     const rawFile = loader();
-    const file = adaptPassageFile(rawFile);
-
-    if (!file.passages.length) {
-      return;
-    }
-
-    file.passages.forEach((raw: RawPassage) => {
-      if (!raw || typeof raw.id !== 'string') {
-        return;
-      }
-
-      if (!Array.isArray(raw.lines) || !raw.lines.length) {
-        return;
-      }
-
-      records.push({
-        id: raw.id,
-        lines: raw.lines,
-        category,
-        language,
-        emotionCore: isEmotionKey(raw.emotionCore) ? raw.emotionCore : undefined,
-        emotionExtended: normalizeEmotionExtended(raw.emotionExtended),
-        meta: raw.meta,
-      });
-    });
+    const normalized = adaptPassageFile(rawFile, { category, domain, language });
+    records.push(...normalized);
   });
 
   return records;
-}
-
-function isEmotionKey(value: unknown): value is EmotionKey {
-  return (
-    value === 'unknown' ||
-    value === 'joy' ||
-    value === 'hope' ||
-    value === 'anxiety' ||
-    value === 'depression' ||
-    value === 'sadness'
-  );
 }
 
 function normalizeSelections(input: MenuSelectionState | null | undefined): MenuSelectionState {
@@ -350,46 +356,204 @@ function normalizeSelections(input: MenuSelectionState | null | undefined): Menu
   };
 }
 
-function normalizeEmotionExtended(value: unknown): EmotionKey[] {
-  if (!Array.isArray(value)) {
+type EmotionKey = MenuSelectionState['emotion'];
+
+function isEmotionKey(value: unknown): value is EmotionKey {
+  return (
+    value === 'unknown' ||
+    value === 'joy' ||
+    value === 'hope' ||
+    value === 'anxiety' ||
+    value === 'depression' ||
+    value === 'sadness'
+  );
+}
+
+function deriveCategoryFilters(selected: ContentCategory[] | undefined): string[] {
+  if (!Array.isArray(selected) || !selected.length) {
     return [];
   }
 
-  return value.filter(isEmotionKey);
+  const mapped = selected
+    .map(mapMenuCategoryToTag)
+    .filter((value): value is string => Boolean(value));
+
+  return Array.from(new Set(mapped));
+}
+
+function mapMenuCategoryToTag(category: ContentCategory): string | null {
+  return category ?? null;
 }
 
 function filterPassages(
-  passages: PassageRecord[],
+  passages: NormalizedPassage[],
   selections: MenuSelectionState,
-): PassageRecord[] {
-  if (!passages.length) {
-    return [];
-  }
-
-  const selectedCategories = Array.isArray(selections.selectedCategories)
-    ? selections.selectedCategories
-    : [];
-
+  categoryFilters: string[],
+): NormalizedPassage[] {
   return passages.filter((passage) => {
     const categoryMatch =
-      !selectedCategories.length || selectedCategories.includes(passage.category);
+      !categoryFilters.length || categoryFilters.includes(passage.tags.category);
 
-    const languageMatch = passage.language === selections.language;
+    if (!categoryMatch) {
+      return false;
+    }
 
-    const emotionMatch =
-      selections.emotion === 'unknown' ||
+    if (selections.emotion === 'unknown') {
+      return true;
+    }
+
+    return (
       passage.emotionCore === selections.emotion ||
-      passage.emotionExtended?.includes(selections.emotion);
-
-    return categoryMatch && languageMatch && emotionMatch;
+      passage.emotionExtended.includes(selections.emotion)
+    );
   });
 }
 
-function pickPassage(passages: PassageRecord[], refreshKey: number): PassageRecord | null {
-  if (!passages.length) {
+function buildCategoryGroups(passages: NormalizedPassage[]): CategoryGroupMap {
+  return passages.reduce<CategoryGroupMap>((acc, passage) => {
+    const key = passage.tags.category;
+    if (!acc[key]) {
+      acc[key] = [];
+    }
+    acc[key].push(passage);
+    return acc;
+  }, {});
+}
+
+function deriveActiveGroupKeys(
+  groupMap: CategoryGroupMap,
+  preferredOrder: string[],
+): string[] {
+  const availableKeys = Object.keys(groupMap).filter((key) => groupMap[key]?.length);
+  if (!availableKeys.length) {
+    return [];
+  }
+
+  if (preferredOrder.length) {
+    const ordered = preferredOrder.filter(
+      (key, index) => preferredOrder.indexOf(key) === index && groupMap[key]?.length,
+    );
+    const leftovers = availableKeys.filter((key) => !ordered.includes(key)).sort();
+    return ordered.concat(leftovers);
+  }
+
+  const prioritized = CATEGORY_PRIORITY.filter((key) => groupMap[key]?.length);
+  const leftovers = availableKeys.filter((key) => !CATEGORY_PRIORITY.includes(key)).sort();
+  return prioritized.concat(leftovers);
+}
+
+function buildStateKey(
+  language: LanguageOption,
+  emotion: EmotionKey,
+  categories: string[],
+): string {
+  const categoryKey = categories.length ? categories.join('|') : '*';
+  return `${language}::${emotion}::${categoryKey}`;
+}
+
+function buildPoolSignature(passages: NormalizedPassage[], groupKeys: string[]): string {
+  const ids = passages.map((passage) => passage.id).join('|');
+  return `${groupKeys.join('|')}::${ids}`;
+}
+
+function getOrCreateRoundRobinState(
+  key: string,
+  poolSignature: string,
+  groupKeys: string[],
+): RoundRobinState {
+  const existing = roundRobinStates.get(key);
+
+  if (!existing || existing.poolSignature !== poolSignature) {
+    const fresh: RoundRobinState = {
+      history: [],
+      nextGroupIndex: 0,
+      lastPickedByGroup: {},
+      groupKeys: [...groupKeys],
+      poolSignature,
+    };
+    roundRobinStates.set(key, fresh);
+    return fresh;
+  }
+
+  existing.groupKeys = [...groupKeys];
+  existing.poolSignature = poolSignature;
+  return existing;
+}
+
+function resolvePassageFromState(
+  state: RoundRobinState,
+  targetIndex: number,
+  groupMap: CategoryGroupMap,
+): NormalizedPassage | null {
+  if (!state.groupKeys.length) {
     return null;
   }
 
-  const index = Math.abs(refreshKey) % passages.length;
-  return passages[index] ?? passages[0] ?? null;
+  while (state.history.length <= targetIndex) {
+    const next = generateNextPassage(state, groupMap);
+    if (!next) {
+      break;
+    }
+    state.history.push(next);
+  }
+
+  return state.history[targetIndex] ?? null;
+}
+
+function generateNextPassage(
+  state: RoundRobinState,
+  groupMap: CategoryGroupMap,
+): NormalizedPassage | null {
+  const totalGroups = state.groupKeys.length;
+  if (!totalGroups) {
+    return null;
+  }
+
+  for (let attempt = 0; attempt < totalGroups; attempt += 1) {
+    const groupIndex = state.nextGroupIndex % totalGroups;
+    const groupKey = state.groupKeys[groupIndex];
+    state.nextGroupIndex = (state.nextGroupIndex + 1) % totalGroups;
+
+    const group = groupMap[groupKey];
+    if (!group || !group.length) {
+      continue;
+    }
+
+    const lastPickedId = state.lastPickedByGroup[groupKey] ?? null;
+    const candidate = pickFromGroup(group, lastPickedId);
+    if (!candidate) {
+      continue;
+    }
+
+    state.lastPickedByGroup[groupKey] = candidate.id;
+    return candidate;
+  }
+
+  return null;
+}
+
+function pickFromGroup(
+  group: NormalizedPassage[],
+  lastPickedId: string | null,
+): NormalizedPassage | null {
+  if (!group.length) {
+    return null;
+  }
+
+  if (group.length === 1) {
+    return group[0];
+  }
+
+  const pool = group.filter((passage) => passage.id !== lastPickedId);
+  const candidates = pool.length ? pool : group;
+  const index = Math.floor(Math.random() * candidates.length);
+  return candidates[index] ?? null;
+}
+
+function normalizeRefreshKey(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(value));
 }

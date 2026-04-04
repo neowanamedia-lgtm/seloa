@@ -1,3 +1,6 @@
+﻿import type { LanguageOption } from '../types/menu';
+import type { NormalizedPassage } from '../types/NormalizedPassage';
+
 type EmotionKey =
   | 'unknown'
   | 'joy'
@@ -20,7 +23,7 @@ export type PassageMeta = {
   chapterDisplay?: string;
 };
 
-export type RawPassage = {
+type RawPassage = {
   id: string;
   lines?: string[];
   emotionCore?: EmotionKey;
@@ -28,11 +31,13 @@ export type RawPassage = {
   meta?: PassageMeta;
 };
 
-export type PassageFile = {
-  passages: RawPassage[];
-};
-
 type UnknownRecord = Record<string, unknown>;
+
+type AdaptOptions = {
+  category: string;
+  domain?: string;
+  language: LanguageOption;
+};
 
 const isRecord = (value: unknown): value is UnknownRecord =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -158,18 +163,31 @@ const normalizePassage = (raw: unknown): RawPassage | null => {
   };
 };
 
-export function adaptPassageFile(input: unknown): PassageFile {
-  const rawPassages = Array.isArray(input)
+const extractRawPassages = (input: unknown): unknown[] =>
+  Array.isArray(input)
     ? input
     : isRecord(input) && Array.isArray(input.passages)
       ? input.passages
       : [];
 
-  const passages = rawPassages
-    .map(normalizePassage)
-    .filter((item): item is RawPassage => item !== null);
+export function adaptPassageFile(input: unknown, options: AdaptOptions): NormalizedPassage[] {
+  const rawPassages = extractRawPassages(input);
 
-  return { passages };
+  return rawPassages
+    .map(normalizePassage)
+    .filter((item): item is RawPassage => item !== null)
+    .map((passage) => ({
+      id: passage.id,
+      lines: passage.lines,
+      sourceText: buildSourceText(passage.meta),
+      emotionCore: passage.emotionCore ?? 'unknown',
+      emotionExtended: passage.emotionExtended ?? [],
+      tags: {
+        category: options.category,
+        domain: options.domain,
+        language: options.language,
+      },
+    }));
 }
 
 export function buildSourceText(meta: PassageMeta | undefined): string {
